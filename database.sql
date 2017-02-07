@@ -1,10 +1,10 @@
 
 /* DATABASE FOR STORING GAMMA SPECTRUMS AND RESULTS */
 
-create database SpectrumData
+create database nrpa_lorakon
 go
 
-use SpectrumData
+use nrpa_lorakon
 go
 
 /* TABLES */

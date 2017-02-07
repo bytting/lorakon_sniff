@@ -22,15 +22,15 @@ namespace LorakonSniff
     [Serializable()]
     public class Settings
     {
-        public string SourceDirectory { get; set; }
-        public string DestinationDirectory { get; set; }
+        public string WatchDirectory { get; set; }
+        public string ConnectionString { get; set; }
         public string FileFilter { get; set; }
         public DateTime LastShutdownTime { get; set; }
 
         public Settings()
         {
-            SourceDirectory = "C:\\LorakonSource";
-            DestinationDirectory = "C:\\LorakonDestination";
+            WatchDirectory = "C:\\LorakonSpectrums";
+            ConnectionString = "Server=zyrox3;Database=nrpa_lorakon;Trusted_Connection=True;";
             FileFilter = "*.cnf";
             LastShutdownTime = DateTime.MinValue;
         }        

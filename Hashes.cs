@@ -22,15 +22,15 @@ using System.Data.SQLite;
 
 namespace LorakonSniff
 {
-    public static class Database
+    public static class Hashes
     {        
-        public static SQLiteConnection CreateConnection()
+        public static SQLiteConnection Create()
         {            
-            SQLiteConnection conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.DatabaseFile + ";Version=3;Compress=True;");            
+            SQLiteConnection conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.HashDB + ";Version=3;Compress=True;");            
 
-            if (!File.Exists(LorakonEnvironment.DatabaseFile))
+            if (!File.Exists(LorakonEnvironment.HashDB))
             {                
-                SQLiteConnection.CreateFile(LorakonEnvironment.DatabaseFile);                
+                SQLiteConnection.CreateFile(LorakonEnvironment.HashDB);                
                 SQLiteCommand cmd = new SQLiteCommand("create table sync_objects (checksum char(64))", conn);
                 conn.Open();
                 cmd.ExecuteNonQuery();
@@ -40,23 +40,22 @@ namespace LorakonSniff
             return conn;
         }
 
-        public static void OpenConnection(SQLiteConnection conn)
+        public static void Open(SQLiteConnection conn)
         {
             if (conn != null && conn.State != ConnectionState.Open)
                 conn.Open();
         }
 
-        public static void CloseConnection(ref SQLiteConnection conn)
+        public static void Close(ref SQLiteConnection conn)
         {
             if (conn != null && conn.State == ConnectionState.Open)
                 conn.Close();            
         }
 
-        public static bool InsertChecksum(SQLiteConnection conn, string cs)
+        public static void InsertChecksum(SQLiteConnection conn, string cs)
         {                            
             SQLiteCommand cmd = new SQLiteCommand("insert into sync_objects (checksum) values('" + cs + "')", conn);                
-            cmd.ExecuteNonQuery();
-            return false;
+            cmd.ExecuteNonQuery();            
         }
 
         public static bool HasChecksum(SQLiteConnection conn, string cs)

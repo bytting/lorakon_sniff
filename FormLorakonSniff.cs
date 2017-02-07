@@ -34,7 +34,8 @@ namespace LorakonSniff
         private Settings settings = null;
         private Monitor monitor = null;
         private ConcurrentQueue<FileEvent> events = null;
-        SQLiteConnection connection = null;
+        SQLiteConnection hashes = null;
+        SQLiteConnection log = null;
         private CTimer timer = null;
 
         public FormLorakonSniff(NotifyIcon trayIcon)
@@ -58,6 +59,9 @@ namespace LorakonSniff
 
         private void FormLorakonSniff_Load(object sender, EventArgs e)
         {
+            log = Log.Create();
+            Log.Open(log);
+
             Visible = false;
             ShowInTaskbar = false;
 
@@ -75,28 +79,36 @@ namespace LorakonSniff
             LoadSettings();
 
             events = new ConcurrentQueue<FileEvent>();
-            connection = Database.CreateConnection();
+            hashes = Hashes.Create();
 
-            // Sync files that has been created after last shutdown and has not been synced before
-            Database.OpenConnection(connection);
-            foreach (string fname in Directory.EnumerateFiles(settings.SourceDirectory, "*.cnf", SearchOption.AllDirectories))
+            // Handle files that has been created after last shutdown and has not been handled before
+            Hashes.Open(hashes);
+            foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, "*.cnf", SearchOption.AllDirectories))
             {
                 DateTime ctime = File.GetCreationTime(fname);
                 DateTime wtime = File.GetLastWriteTime(fname);
                 if (ctime.CompareTo(settings.LastShutdownTime) < 0 && wtime.CompareTo(settings.LastShutdownTime) < 0)
                 {
-                    lbLog.Items.Add("Skipping " + fname + ", not modified since last shutdown");
+                    Log.AddMessage(log, "Skipping " + fname + ", not modified since last shutdown");
                     continue;
                 }
 
                 string sum = FileOps.GetChecksum(fname);
-                if (!Database.HasChecksum(connection, sum))
+                if (!Hashes.HasChecksum(hashes, sum))
                 {
-                    lbLog.Items.Add("Syncing " + fname + " [" + sum + "]");
-                    SyncFile(connection, fname, sum);
+                    Log.AddMessage(log, "Importing " + fname + " [" + sum + "]");
+
+                    Report report = GetReport(fname);
+                    StoreReport(report);
+
+                    Hashes.InsertChecksum(hashes, sum);
+                }
+                else
+                {
+                    Log.AddMessage(log, "File " + fname + " is already imported");
                 }
             }
-            Database.CloseConnection(ref connection);
+            Hashes.Close(ref hashes);
 
             // Start timer for processing file events
             timer = new CTimer();
@@ -107,6 +119,8 @@ namespace LorakonSniff
             // Start monitoring file events
             monitor = new Monitor(settings, events);
             monitor.Start();
+
+            Log.Close(ref log);
         }
 
         void timer_Tick(object sender, EventArgs e)
@@ -121,25 +135,37 @@ namespace LorakonSniff
                     
                     string sum = FileOps.GetChecksum(evt.FullPath);
 
-                    Database.OpenConnection(connection);
-                    if (!Database.HasChecksum(connection, sum))                    
+                    Hashes.Open(hashes);
+                    if (!Hashes.HasChecksum(hashes, sum))                    
                     {
-                        lbLog.Items.Add("Syncing " + evt.FullPath + " [" + sum + "]");
-                        SyncFile(connection, evt.FullPath, sum);
+                        Log.AddMessage(log, "Importing " + evt.FullPath + " [" + sum + "]");
+
+                        Report report = GetReport(evt.FullPath);
+                        StoreReport(report);
+
+                        Hashes.InsertChecksum(hashes, sum);
                     }
                     else
                     {
-                        lbLog.Items.Add("File " + evt.FullPath + " is already synced");
+                        Log.AddMessage(log, "File " + evt.FullPath + " is already imported");
                     }
-                    Database.CloseConnection(ref connection);
+                    Hashes.Close(ref hashes);
                 }
             }
         } 
        
-        private void SyncFile(SQLiteConnection conn, string filename, string checksum)
+        private Report GetReport(string filename)
         {
-            File.Copy(filename, settings.DestinationDirectory + Path.DirectorySeparatorChar + checksum + ".cnf", true);
-            Database.InsertChecksum(connection, checksum);
+            Report report = new Report();
+
+            // Parse spectrum            
+
+            return report;
+        }
+
+        private void StoreReport(Report report)
+        {
+            // Store report in database            
         }
 
         public void LoadSettings()
@@ -167,7 +193,7 @@ namespace LorakonSniff
 
         private void OnExit(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Er du sikker på at du vil stoppe synkronisering av Lorakon filer?", "Informasjon", MessageBoxButtons.YesNo) == DialogResult.No)
+            if (MessageBox.Show("Er du sikker på at du vil stoppe mottak av spekterfiler?", "Informasjon", MessageBoxButtons.YesNo) == DialogResult.No)
                 return;
 
             settings.LastShutdownTime = DateTime.Now;

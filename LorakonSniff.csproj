@@ -60,7 +60,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Database.cs" />
+    <Compile Include="Hashes.cs" />
     <Compile Include="FileEvent.cs" />
     <Compile Include="FileOps.cs" />
     <Compile Include="FormLorakonSniff.cs">
@@ -69,10 +69,12 @@
     <Compile Include="FormLorakonSniff.Designer.cs">
       <DependentUpon>FormLorakonSniff.cs</DependentUpon>
     </Compile>
+    <Compile Include="Log.cs" />
     <Compile Include="LorakonEnvironment.cs" />
     <Compile Include="Monitor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Report.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SingletonApp.cs" />
     <EmbeddedResource Include="FormLorakonSniff.resx">

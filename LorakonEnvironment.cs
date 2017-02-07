@@ -25,6 +25,7 @@ namespace LorakonSniff
         // Settings path
         public static string SettingsPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments) + Path.DirectorySeparatorChar + "Lorakon";
         public static string SettingsFile = SettingsPath + Path.DirectorySeparatorChar + "Settings.xml";
-        public static string DatabaseFile = SettingsPath + Path.DirectorySeparatorChar + "LorakonSniff.db";
+        public static string HashDB = SettingsPath + Path.DirectorySeparatorChar + "LorakonHashes.db";
+        public static string LogDB = SettingsPath + Path.DirectorySeparatorChar + "LorakonLog.db";
     }
 }

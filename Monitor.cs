@@ -30,7 +30,7 @@ namespace LorakonSniff
         public Monitor(Settings s, ConcurrentQueue<FileEvent> evts)
         {            
             events = evts;
-            monitor = new FileSystemWatcher(s.SourceDirectory, s.FileFilter);
+            monitor = new FileSystemWatcher(s.WatchDirectory, s.FileFilter);
             monitor.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;            
             monitor.Created += monitor_Created;
             monitor.Changed += monitor_Changed;

@@ -61,6 +61,7 @@ namespace LorakonSniff
         {
             log = Log.Create();
             Log.Open(log);
+            Log.AddMessage(log, "STARTED");
 
             Visible = false;
             ShowInTaskbar = false;
@@ -71,6 +72,9 @@ namespace LorakonSniff
             Height = (rect.Bottom - rect.Top) / 2;
             Left = rect.Left + Width / 2;
             Top = rect.Top + Height / 2;
+            
+            dtLogFrom.Value = DateTime.Now - new TimeSpan(1, 0, 0, 0);
+            dtLogTo.Value = DateTime.Now;
 
             // Create environment and load settings
             if (!Directory.Exists(LorakonEnvironment.SettingsPath))
@@ -78,12 +82,19 @@ namespace LorakonSniff
             settings = new Settings();
             LoadSettings();
 
+            tbSettingsWatchDirectory.Text = settings.WatchDirectory;
+            tbSettingsConnectionString.Text = settings.ConnectionString;
+            tbSettingsSpectrumFilter.Text = settings.FileFilter;
+
+            if (!Directory.Exists(settings.WatchDirectory))
+                Directory.CreateDirectory(settings.WatchDirectory);
+
             events = new ConcurrentQueue<FileEvent>();
             hashes = Hashes.Create();
 
             // Handle files that has been created after last shutdown and has not been handled before
             Hashes.Open(hashes);
-            foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, "*.cnf", SearchOption.AllDirectories))
+            foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
             {
                 DateTime ctime = File.GetCreationTime(fname);
                 DateTime wtime = File.GetLastWriteTime(fname);
@@ -200,7 +211,12 @@ namespace LorakonSniff
             SaveSettings();
 
             monitor.Stop();
-            timer.Stop();            
+            timer.Stop();
+
+            Log.Open(log);
+            Log.AddMessage(log, "STOPPED");
+            Log.Close(ref log);
+
             Application.Exit();
         }
 
@@ -235,6 +251,42 @@ namespace LorakonSniff
 
             e.Cancel = true;
             Hide();
+        }
+
+        private void btnSettingsSave_Click(object sender, EventArgs e)
+        {
+            if(String.IsNullOrEmpty(tbSettingsWatchDirectory.Text))
+            {
+                MessageBox.Show("Kan ikke lagre en tom spectrum katalog");
+                return;
+            }
+
+            if(!Directory.Exists(tbSettingsWatchDirectory.Text))
+            {
+                MessageBox.Show("Valgt spectrum katalog finnes ikke");
+                return;
+            }
+
+            if (String.IsNullOrEmpty(tbSettingsConnectionString.Text))
+            {
+                MessageBox.Show("Kan ikke lagre en tom forbindelses streng");
+                return;
+            }
+
+            settings.WatchDirectory = tbSettingsWatchDirectory.Text;
+            settings.ConnectionString = tbSettingsConnectionString.Text;
+            settings.FileFilter = tbSettingsSpectrumFilter.Text;
+
+            SaveSettings();
+
+            monitor = new Monitor(settings, events);
+        }
+
+        private void btnLogUpdate_Click(object sender, EventArgs e)
+        {
+            Log.Open(log);
+            lbLog.DataSource = Log.GetEntries(log, dtLogFrom.Value, dtLogTo.Value);
+            Log.Close(ref log);
         }
     }
 }

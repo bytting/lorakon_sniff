@@ -63,7 +63,7 @@ namespace LorakonSniff
 
         public static List<string> GetEntries(SQLiteConnection conn, DateTime from, DateTime to)
         {
-            SQLiteCommand cmd = new SQLiteCommand("select created, message from log_entries where created > @from and created < @to", conn);
+            SQLiteCommand cmd = new SQLiteCommand("select created, message from log_entries where created > @from and created < @to order by created desc", conn);
             cmd.Parameters.AddWithValue("@from", from);
             cmd.Parameters.AddWithValue("@to", to);
             List<string> entries = new List<string>();
@@ -71,7 +71,7 @@ namespace LorakonSniff
             while(reader.Read())
             {
                 DateTime created = Convert.ToDateTime(reader["created"]);
-                entries.Add(created.ToLocalTime().ToShortDateString() + " - " + reader["message"]);
+                entries.Add(created.ToString() + " - " + reader["message"]);
             }
             reader.Close();
             return entries;

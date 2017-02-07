@@ -63,7 +63,7 @@ namespace LorakonSniff
 
         public void Start()
         {
-            monitor.EnableRaisingEvents = true;
+            monitor.EnableRaisingEvents = true;            
         }
 
         public void Stop()

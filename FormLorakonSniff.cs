@@ -22,6 +22,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
+using System.Diagnostics;
 using System.Xml.Serialization;
 using System.Data.SQLite;
 using CTimer = System.Windows.Forms.Timer;
@@ -30,13 +31,17 @@ namespace LorakonSniff
 {
     public partial class FormLorakonSniff : Form
     {
+        private bool ApplicationInitalized = false;
         private ContextMenu trayMenu = null;
         private Settings settings = null;
         private Monitor monitor = null;
         private ConcurrentQueue<FileEvent> events = null;
-        SQLiteConnection hashes = null;
-        SQLiteConnection log = null;
+        private SQLiteConnection hashes = null;
+        private SQLiteConnection log = null;
         private CTimer timer = null;
+        private string ReportExecutable;
+        private string ReportTemplate;
+        private string ReportOutput;
 
         public FormLorakonSniff(NotifyIcon trayIcon)
         {
@@ -63,6 +68,23 @@ namespace LorakonSniff
             Log.Open(log);
             Log.AddMessage(log, "STARTED");
 
+            string InstallationDirectory = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + Path.DirectorySeparatorChar;
+            ReportExecutable = InstallationDirectory + "report.exe";
+            if (!File.Exists(ReportExecutable))
+            {
+                Log.AddMessage(log, "Finner ikke filen: " + ReportExecutable);
+                Log.Close(ref log);                
+                Application.Exit();
+            }
+
+            ReportTemplate = InstallationDirectory + "report_template.tpl";
+            if (!File.Exists(ReportTemplate))
+            {
+                Log.AddMessage(log, "Finner ikke filen: " + ReportTemplate);
+                Log.Close(ref log);
+                Application.Exit();
+            }            
+
             Visible = false;
             ShowInTaskbar = false;
 
@@ -72,15 +94,18 @@ namespace LorakonSniff
             Height = (rect.Bottom - rect.Top) / 2;
             Left = rect.Left + Width / 2;
             Top = rect.Top + Height / 2;
-            
-            dtLogFrom.Value = DateTime.Now - new TimeSpan(1, 0, 0, 0);
-            dtLogTo.Value = DateTime.Now;
+
+            TimeSpan OneDay = new TimeSpan(1, 0, 0, 0);
+            dtLogFrom.Value = DateTime.Now - OneDay;
+            dtLogTo.Value = DateTime.Now + OneDay;
 
             // Create environment and load settings
             if (!Directory.Exists(LorakonEnvironment.SettingsPath))
                 Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
             settings = new Settings();
             LoadSettings();
+
+            ReportOutput = LorakonEnvironment.SettingsPath + Path.DirectorySeparatorChar + "last_report.rpt";
 
             tbSettingsWatchDirectory.Text = settings.WatchDirectory;
             tbSettingsConnectionString.Text = settings.ConnectionString;
@@ -96,20 +121,13 @@ namespace LorakonSniff
             Hashes.Open(hashes);
             foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
             {
-                DateTime ctime = File.GetCreationTime(fname);
-                DateTime wtime = File.GetLastWriteTime(fname);
-                if (ctime.CompareTo(settings.LastShutdownTime) < 0 && wtime.CompareTo(settings.LastShutdownTime) < 0)
-                {
-                    Log.AddMessage(log, "Skipping " + fname + ", not modified since last shutdown");
-                    continue;
-                }
-
                 string sum = FileOps.GetChecksum(fname);
                 if (!Hashes.HasChecksum(hashes, sum))
                 {
                     Log.AddMessage(log, "Importing " + fname + " [" + sum + "]");
 
-                    Report report = GetReport(fname);
+                    string repfile = GenerateReport(fname);
+                    SpectrumReport report = ParseReport(repfile);
                     StoreReport(report);
 
                     Hashes.InsertChecksum(hashes, sum);
@@ -151,7 +169,8 @@ namespace LorakonSniff
                     {
                         Log.AddMessage(log, "Importing " + evt.FullPath + " [" + sum + "]");
 
-                        Report report = GetReport(evt.FullPath);
+                        string repfile = GenerateReport(evt.FullPath);
+                        SpectrumReport report = ParseReport(repfile);
                         StoreReport(report);
 
                         Hashes.InsertChecksum(hashes, sum);
@@ -165,16 +184,34 @@ namespace LorakonSniff
             }
         } 
        
-        private Report GetReport(string filename)
-        {
-            Report report = new Report();
+        private string GenerateReport(string specfile)
+        {   
+            // Generate report
+                     
+            string args = specfile + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /OUTFILE=" + ReportOutput;
+            Process p = new Process();
+            p.StartInfo.FileName = ReportExecutable;
+            p.StartInfo.Arguments = args;            
+            p.StartInfo.WorkingDirectory = Path.GetDirectoryName(ReportOutput);
+            p.StartInfo.UseShellExecute = true;
+            p.StartInfo.CreateNoWindow = true;
+            p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            p.Start();
+            p.WaitForExit();
 
-            // Parse spectrum            
+            return ReportOutput;            
+        }
+
+        private SpectrumReport ParseReport(string repfile)
+        {
+            SpectrumReport report = new SpectrumReport();
+
+            // Parse report
 
             return report;
         }
 
-        private void StoreReport(Report report)
+        private void StoreReport(SpectrumReport report)
         {
             // Store report in database            
         }
@@ -287,6 +324,15 @@ namespace LorakonSniff
             Log.Open(log);
             lbLog.DataSource = Log.GetEntries(log, dtLogFrom.Value, dtLogTo.Value);
             Log.Close(ref log);
+        }
+
+        private void btnSettingsBrowseWatchDirectory_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog diag = new FolderBrowserDialog();
+            if (diag.ShowDialog() != DialogResult.OK)
+                return;
+
+            tbSettingsWatchDirectory.Text = diag.SelectedPath;
         }
     }
 }

@@ -33,19 +33,19 @@
             this.tabs = new System.Windows.Forms.TabControl();
             this.pageAbout = new System.Windows.Forms.TabPage();
             this.pageSettings = new System.Windows.Forms.TabPage();
-            this.pageLog = new System.Windows.Forms.TabPage();
-            this.lbLog = new System.Windows.Forms.ListBox();
             this.tblSettings = new System.Windows.Forms.TableLayoutPanel();
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnSettingsBrowseWatchDirectory = new System.Windows.Forms.Button();
             this.tbSettingsWatchDirectory = new System.Windows.Forms.TextBox();
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.btnSettingsSave = new System.Windows.Forms.Button();
+            this.btnSettingsBrowseWatchDirectory = new System.Windows.Forms.Button();
             this.label2 = new System.Windows.Forms.Label();
             this.tbSettingsConnectionString = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.tbSettingsSpectrumFilter = new System.Windows.Forms.TextBox();
+            this.panel2 = new System.Windows.Forms.Panel();
+            this.btnSettingsSave = new System.Windows.Forms.Button();
+            this.pageLog = new System.Windows.Forms.TabPage();
+            this.lbLog = new System.Windows.Forms.ListBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
@@ -54,10 +54,10 @@
             this.btnLogUpdate = new System.Windows.Forms.Button();
             this.tabs.SuspendLayout();
             this.pageSettings.SuspendLayout();
-            this.pageLog.SuspendLayout();
             this.tblSettings.SuspendLayout();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
+            this.pageLog.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -104,28 +104,6 @@
             this.pageSettings.TabIndex = 1;
             this.pageSettings.Text = "Innstillinger";
             // 
-            // pageLog
-            // 
-            this.pageLog.BackColor = System.Drawing.SystemColors.ButtonFace;
-            this.pageLog.Controls.Add(this.lbLog);
-            this.pageLog.Controls.Add(this.tableLayoutPanel1);
-            this.pageLog.Location = new System.Drawing.Point(4, 24);
-            this.pageLog.Name = "pageLog";
-            this.pageLog.Padding = new System.Windows.Forms.Padding(3);
-            this.pageLog.Size = new System.Drawing.Size(812, 522);
-            this.pageLog.TabIndex = 2;
-            this.pageLog.Text = "Logg";
-            // 
-            // lbLog
-            // 
-            this.lbLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lbLog.FormattingEnabled = true;
-            this.lbLog.ItemHeight = 15;
-            this.lbLog.Location = new System.Drawing.Point(3, 98);
-            this.lbLog.Name = "lbLog";
-            this.lbLog.Size = new System.Drawing.Size(806, 421);
-            this.lbLog.TabIndex = 0;
-            // 
             // tblSettings
             // 
             this.tblSettings.ColumnCount = 2;
@@ -151,10 +129,12 @@
             // 
             // label1
             // 
+            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(3, 30);
+            this.label1.Location = new System.Drawing.Point(55, 30);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(103, 15);
+            this.label1.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this.label1.Size = new System.Drawing.Size(103, 21);
             this.label1.TabIndex = 0;
             this.label1.Text = "Spektrum katalog";
             // 
@@ -168,24 +148,63 @@
             this.panel1.Size = new System.Drawing.Size(639, 24);
             this.panel1.TabIndex = 1;
             // 
-            // btnSettingsBrowseWatchDirectory
-            // 
-            this.btnSettingsBrowseWatchDirectory.Dock = System.Windows.Forms.DockStyle.Right;
-            this.btnSettingsBrowseWatchDirectory.Location = new System.Drawing.Point(564, 0);
-            this.btnSettingsBrowseWatchDirectory.Name = "btnSettingsBrowseWatchDirectory";
-            this.btnSettingsBrowseWatchDirectory.Size = new System.Drawing.Size(75, 24);
-            this.btnSettingsBrowseWatchDirectory.TabIndex = 0;
-            this.btnSettingsBrowseWatchDirectory.Text = "...";
-            this.btnSettingsBrowseWatchDirectory.UseVisualStyleBackColor = true;
-            // 
             // tbSettingsWatchDirectory
             // 
             this.tbSettingsWatchDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbSettingsWatchDirectory.Location = new System.Drawing.Point(0, 0);
             this.tbSettingsWatchDirectory.Name = "tbSettingsWatchDirectory";
             this.tbSettingsWatchDirectory.ReadOnly = true;
-            this.tbSettingsWatchDirectory.Size = new System.Drawing.Size(564, 21);
+            this.tbSettingsWatchDirectory.Size = new System.Drawing.Size(582, 21);
             this.tbSettingsWatchDirectory.TabIndex = 1;
+            // 
+            // btnSettingsBrowseWatchDirectory
+            // 
+            this.btnSettingsBrowseWatchDirectory.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnSettingsBrowseWatchDirectory.Location = new System.Drawing.Point(582, 0);
+            this.btnSettingsBrowseWatchDirectory.Name = "btnSettingsBrowseWatchDirectory";
+            this.btnSettingsBrowseWatchDirectory.Size = new System.Drawing.Size(57, 24);
+            this.btnSettingsBrowseWatchDirectory.TabIndex = 0;
+            this.btnSettingsBrowseWatchDirectory.Text = "...";
+            this.btnSettingsBrowseWatchDirectory.UseVisualStyleBackColor = true;
+            this.btnSettingsBrowseWatchDirectory.Click += new System.EventHandler(this.btnSettingsBrowseWatchDirectory_Click);
+            // 
+            // label2
+            // 
+            this.label2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(43, 60);
+            this.label2.Name = "label2";
+            this.label2.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this.label2.Size = new System.Drawing.Size(115, 21);
+            this.label2.TabIndex = 2;
+            this.label2.Text = "Forbindelses streng";
+            // 
+            // tbSettingsConnectionString
+            // 
+            this.tbSettingsConnectionString.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsConnectionString.Location = new System.Drawing.Point(164, 63);
+            this.tbSettingsConnectionString.Name = "tbSettingsConnectionString";
+            this.tbSettingsConnectionString.Size = new System.Drawing.Size(639, 21);
+            this.tbSettingsConnectionString.TabIndex = 3;
+            // 
+            // label3
+            // 
+            this.label3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(72, 90);
+            this.label3.Name = "label3";
+            this.label3.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this.label3.Size = new System.Drawing.Size(86, 21);
+            this.label3.TabIndex = 4;
+            this.label3.Text = "Spektrum filter";
+            // 
+            // tbSettingsSpectrumFilter
+            // 
+            this.tbSettingsSpectrumFilter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsSpectrumFilter.Location = new System.Drawing.Point(164, 93);
+            this.tbSettingsSpectrumFilter.Name = "tbSettingsSpectrumFilter";
+            this.tbSettingsSpectrumFilter.Size = new System.Drawing.Size(639, 21);
+            this.tbSettingsSpectrumFilter.TabIndex = 5;
             // 
             // panel2
             // 
@@ -207,39 +226,27 @@
             this.btnSettingsSave.UseVisualStyleBackColor = true;
             this.btnSettingsSave.Click += new System.EventHandler(this.btnSettingsSave_Click);
             // 
-            // label2
+            // pageLog
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(3, 60);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(115, 15);
-            this.label2.TabIndex = 2;
-            this.label2.Text = "Forbindelses streng";
+            this.pageLog.BackColor = System.Drawing.SystemColors.ButtonFace;
+            this.pageLog.Controls.Add(this.lbLog);
+            this.pageLog.Controls.Add(this.tableLayoutPanel1);
+            this.pageLog.Location = new System.Drawing.Point(4, 24);
+            this.pageLog.Name = "pageLog";
+            this.pageLog.Padding = new System.Windows.Forms.Padding(3);
+            this.pageLog.Size = new System.Drawing.Size(812, 522);
+            this.pageLog.TabIndex = 2;
+            this.pageLog.Text = "Logg";
             // 
-            // tbSettingsConnectionString
+            // lbLog
             // 
-            this.tbSettingsConnectionString.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsConnectionString.Location = new System.Drawing.Point(164, 63);
-            this.tbSettingsConnectionString.Name = "tbSettingsConnectionString";
-            this.tbSettingsConnectionString.Size = new System.Drawing.Size(639, 21);
-            this.tbSettingsConnectionString.TabIndex = 3;
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(3, 90);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(86, 15);
-            this.label3.TabIndex = 4;
-            this.label3.Text = "Spektrum filter";
-            // 
-            // tbSettingsSpectrumFilter
-            // 
-            this.tbSettingsSpectrumFilter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsSpectrumFilter.Location = new System.Drawing.Point(164, 93);
-            this.tbSettingsSpectrumFilter.Name = "tbSettingsSpectrumFilter";
-            this.tbSettingsSpectrumFilter.Size = new System.Drawing.Size(639, 21);
-            this.tbSettingsSpectrumFilter.TabIndex = 5;
+            this.lbLog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lbLog.FormattingEnabled = true;
+            this.lbLog.ItemHeight = 15;
+            this.lbLog.Location = new System.Drawing.Point(3, 98);
+            this.lbLog.Name = "lbLog";
+            this.lbLog.Size = new System.Drawing.Size(806, 421);
+            this.lbLog.TabIndex = 0;
             // 
             // tableLayoutPanel1
             // 
@@ -265,19 +272,23 @@
             // 
             // label4
             // 
+            this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(3, 30);
+            this.label4.Location = new System.Drawing.Point(92, 30);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(25, 15);
+            this.label4.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this.label4.Size = new System.Drawing.Size(25, 21);
             this.label4.TabIndex = 0;
             this.label4.Text = "Fra";
             // 
             // label5
             // 
+            this.label5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(405, 30);
+            this.label5.Location = new System.Drawing.Point(499, 30);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(20, 15);
+            this.label5.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this.label5.Size = new System.Drawing.Size(20, 21);
             this.label5.TabIndex = 1;
             this.label5.Text = "Til";
             // 
@@ -325,12 +336,12 @@
             this.Load += new System.EventHandler(this.FormLorakonSniff_Load);
             this.tabs.ResumeLayout(false);
             this.pageSettings.ResumeLayout(false);
-            this.pageLog.ResumeLayout(false);
             this.tblSettings.ResumeLayout(false);
             this.tblSettings.PerformLayout();
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
             this.panel2.ResumeLayout(false);
+            this.pageLog.ResumeLayout(false);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.ResumeLayout(false);

@@ -33,11 +33,11 @@ namespace LorakonSniff
     {
         private bool ApplicationInitalized = false;
         private ContextMenu trayMenu = null;
+        private Log log = null;
         private Settings settings = null;
         private Monitor monitor = null;
         private ConcurrentQueue<FileEvent> events = null;
-        private SQLiteConnection hashes = null;
-        private SQLiteConnection log = null;
+        private SQLiteConnection hashes = null;        
         private CTimer timer = null;
         private string ReportExecutable;
         private string ReportTemplate;
@@ -45,7 +45,7 @@ namespace LorakonSniff
 
         public FormLorakonSniff(NotifyIcon trayIcon)
         {
-            InitializeComponent();
+            InitializeComponent();            
 
             trayMenu = new ContextMenu();
             trayMenu.MenuItems.Add("Avslutt", OnExit);
@@ -64,24 +64,26 @@ namespace LorakonSniff
 
         private void FormLorakonSniff_Load(object sender, EventArgs e)
         {
-            log = Log.Create();
-            Log.Open(log);
-            Log.AddMessage(log, "STARTED");
+            log = new Log();
+            if (!log.Create())
+            {
+                MessageBox.Show("Kan ikke opprette logg database");
+                Application.Exit();
+            }
+            log.AddMessage("Starting log service");
 
             string InstallationDirectory = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + Path.DirectorySeparatorChar;
             ReportExecutable = InstallationDirectory + "report.exe";
             if (!File.Exists(ReportExecutable))
             {
-                Log.AddMessage(log, "Finner ikke filen: " + ReportExecutable);
-                Log.Close(ref log);                
+                log.AddMessage("Finner ikke filen: " + ReportExecutable);
                 Application.Exit();
             }
 
             ReportTemplate = InstallationDirectory + "report_template.tpl";
             if (!File.Exists(ReportTemplate))
             {
-                Log.AddMessage(log, "Finner ikke filen: " + ReportTemplate);
-                Log.Close(ref log);
+                log.AddMessage("Finner ikke filen: " + ReportTemplate);                
                 Application.Exit();
             }            
 
@@ -124,7 +126,7 @@ namespace LorakonSniff
                 string sum = FileOps.GetChecksum(fname);
                 if (!Hashes.HasChecksum(hashes, sum))
                 {
-                    Log.AddMessage(log, "Importing " + fname + " [" + sum + "]");
+                    log.AddMessage("Importing " + fname + " [" + sum + "]");
 
                     string repfile = GenerateReport(fname);
                     SpectrumReport report = ParseReport(repfile);
@@ -134,7 +136,7 @@ namespace LorakonSniff
                 }
                 else
                 {
-                    Log.AddMessage(log, "File " + fname + " is already imported");
+                    log.AddMessage("File " + fname + " is already imported");
                 }
             }
             Hashes.Close(ref hashes);
@@ -148,8 +150,6 @@ namespace LorakonSniff
             // Start monitoring file events
             monitor = new Monitor(settings, events);
             monitor.Start();
-
-            Log.Close(ref log);
         }
 
         void timer_Tick(object sender, EventArgs e)
@@ -167,7 +167,7 @@ namespace LorakonSniff
                     Hashes.Open(hashes);
                     if (!Hashes.HasChecksum(hashes, sum))                    
                     {
-                        Log.AddMessage(log, "Importing " + evt.FullPath + " [" + sum + "]");
+                        log.AddMessage("Importing " + evt.FullPath + " [" + sum + "]");
 
                         string repfile = GenerateReport(evt.FullPath);
                         SpectrumReport report = ParseReport(repfile);
@@ -177,7 +177,7 @@ namespace LorakonSniff
                     }
                     else
                     {
-                        Log.AddMessage(log, "File " + evt.FullPath + " is already imported");
+                        log.AddMessage("File " + evt.FullPath + " is already imported");
                     }
                     Hashes.Close(ref hashes);
                 }
@@ -250,10 +250,6 @@ namespace LorakonSniff
             monitor.Stop();
             timer.Stop();
 
-            Log.Open(log);
-            Log.AddMessage(log, "STOPPED");
-            Log.Close(ref log);
-
             Application.Exit();
         }
 
@@ -320,10 +316,8 @@ namespace LorakonSniff
         }
 
         private void btnLogUpdate_Click(object sender, EventArgs e)
-        {
-            Log.Open(log);
-            lbLog.DataSource = Log.GetEntries(log, dtLogFrom.Value, dtLogTo.Value);
-            Log.Close(ref log);
+        {            
+            lbLog.DataSource = log.GetEntries(dtLogFrom.Value, dtLogTo.Value);            
         }
 
         private void btnSettingsBrowseWatchDirectory_Click(object sender, EventArgs e)

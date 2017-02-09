@@ -23,57 +23,94 @@ using System.Data.SQLite;
 
 namespace LorakonSniff
 {
-    public static class Log
+    public class Log
     {
-        public static SQLiteConnection Create()
+        private SQLiteConnection conn = null;
+
+        public Log()
+        {                        
+        }        
+
+        public bool Create()
         {
-            SQLiteConnection conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.LogDB + ";Version=3;Compress=True;");
-
-            if (!File.Exists(LorakonEnvironment.LogDB))
+            try
             {
-                SQLiteConnection.CreateFile(LorakonEnvironment.LogDB);
-                SQLiteCommand cmd = new SQLiteCommand("create table log_entries (created datetime, message text)", conn);
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                conn.Close();
-            }
+                if (!Directory.Exists(Path.GetDirectoryName(LorakonEnvironment.LogDB)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(LorakonEnvironment.LogDB));
+                }
 
-            return conn;
+                conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.LogDB + ";Version=3;Compress=True;");
+
+                if (!File.Exists(LorakonEnvironment.LogDB))
+                {
+                    SQLiteConnection.CreateFile(LorakonEnvironment.LogDB);
+                    SQLiteCommand cmd = new SQLiteCommand("create table log_entries (created datetime, message text)", conn);
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                    conn.Close();
+                }
+            }
+            catch(Exception ex)
+            {
+                return false;
+            }
+            return true;
         }
 
-        public static void Open(SQLiteConnection conn)
+        private void Open()
         {
             if (conn != null && conn.State != ConnectionState.Open)
                 conn.Open();
         }
 
-        public static void Close(ref SQLiteConnection conn)
+        private void Close()
         {
             if (conn != null && conn.State == ConnectionState.Open)
                 conn.Close();
         }
 
-        public static void AddMessage(SQLiteConnection conn, string message)
+        public void AddMessage(string message)
         {
-            SQLiteCommand cmd = new SQLiteCommand("insert into log_entries (created, message) values(@created, @message)", conn);
-            cmd.Parameters.AddWithValue("@created", DateTime.Now);
-            cmd.Parameters.AddWithValue("@message", message);
-            cmd.ExecuteNonQuery();
+            try
+            {
+                Open();
+                SQLiteCommand cmd = new SQLiteCommand("insert into log_entries (created, message) values(@created, @message)", conn);
+                cmd.Parameters.AddWithValue("@created", DateTime.Now);
+                cmd.Parameters.AddWithValue("@message", message);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                Close();
+            }
         }
 
-        public static List<string> GetEntries(SQLiteConnection conn, DateTime from, DateTime to)
+        public List<string> GetEntries(DateTime from, DateTime to)
         {
-            SQLiteCommand cmd = new SQLiteCommand("select created, message from log_entries where created > @from and created < @to order by created desc", conn);
-            cmd.Parameters.AddWithValue("@from", from);
-            cmd.Parameters.AddWithValue("@to", to);
+            SQLiteDataReader reader = null;
             List<string> entries = new List<string>();
-            SQLiteDataReader reader = cmd.ExecuteReader();
-            while(reader.Read())
+
+            try
             {
-                DateTime created = Convert.ToDateTime(reader["created"]);
-                entries.Add(created.ToString() + " - " + reader["message"]);
+                Open();
+                SQLiteCommand cmd = new SQLiteCommand("select created, message from log_entries where created > @from and created < @to order by created desc", conn);
+                cmd.Parameters.AddWithValue("@from", from);
+                cmd.Parameters.AddWithValue("@to", to);                
+                reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    DateTime created = Convert.ToDateTime(reader["created"]);
+                    entries.Add(created.ToString() + " - " + reader["message"]);
+                }                
             }
-            reader.Close();
+            finally
+            {
+                if(reader != null && !reader.IsClosed)
+                    reader.Close();
+                Close();
+            }
+
             return entries;
         }
     }

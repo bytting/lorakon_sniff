@@ -33,12 +33,12 @@ namespace LorakonSniff
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-
+            
             using (NotifyIcon trayIcon = new NotifyIcon())
             {
-                FormLorakonSniff app = new FormLorakonSniff(trayIcon);                
+                FormLorakonSniff app = new FormLorakonSniff(trayIcon);
                 Application.Run(app);
-            }
+            }            
 
             SingletonApp.Close();
         }

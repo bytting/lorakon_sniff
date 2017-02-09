@@ -46,7 +46,8 @@ namespace LorakonSniff
         public double Livetime { get; set; }
         public double Realtime { get; set; }
         public double Deadtime { get; set; }
-        List<SpectrumResult> Results = new List<SpectrumResult>();
+        public string NuclideLibrary { get; set; }
+        public List<SpectrumResult> Results = new List<SpectrumResult>();
 
         public SpectrumReport()
         {

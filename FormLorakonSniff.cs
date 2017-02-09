@@ -24,6 +24,7 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.Xml.Serialization;
+using System.Globalization;
 using System.Data.SQLite;
 using CTimer = System.Windows.Forms.Timer;
 
@@ -133,11 +134,7 @@ namespace LorakonSniff
                     StoreReport(report);
 
                     Hashes.InsertChecksum(hashes, sum);
-                }
-                else
-                {
-                    log.AddMessage("File " + fname + " is already imported");
-                }
+                }                
             }
             Hashes.Close(ref hashes);
 
@@ -174,11 +171,7 @@ namespace LorakonSniff
                         StoreReport(report);
 
                         Hashes.InsertChecksum(hashes, sum);
-                    }
-                    else
-                    {
-                        log.AddMessage("File " + evt.FullPath + " is already imported");
-                    }
+                    }                    
                     Hashes.Close(ref hashes);
                 }
             }
@@ -204,11 +197,153 @@ namespace LorakonSniff
 
         private SpectrumReport ParseReport(string repfile)
         {
-            SpectrumReport report = new SpectrumReport();
+            SpectrumReport report = new SpectrumReport();            
 
-            // Parse report
+            TextReader reader = File.OpenText(repfile);
+            string line, param;
+            while((line = reader.ReadLine()) != null)
+            {
+                line = line.Trim();                
+
+                if((param = ParseReport_ExtractParameter("Laboratory", line)) != String.Empty)                
+                    report.Laboratory = param;
+
+                else if ((param = ParseReport_ExtractParameter("Operator", line)) != String.Empty)
+                    report.Operator = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Title", line)) != String.Empty)
+                    report.SampleTitle = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Identification", line)) != String.Empty)
+                    report.SampleIdentification = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Type", line)) != String.Empty)
+                    report.SampleType = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Component", line)) != String.Empty)
+                    report.SampleComponent = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Geometry", line)) != String.Empty)
+                    report.SampleGeometry = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Location Type", line)) != String.Empty)
+                    report.SampleLocationType = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Location", line)) != String.Empty)
+                    report.SampleLocation = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Community/County", line)) != String.Empty)
+                    report.SampleCommunityCounty = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Coordinates", line)) != String.Empty)
+                {
+                    char[] wspace = new char[] { ' ', '\t' };
+                    string[] coords = param.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
+                    if (coords.Length > 0)
+                        report.SampleLatitude = Convert.ToDouble(coords[0], CultureInfo.InvariantCulture);
+                    if (coords.Length > 1)
+                        report.SampleLongitude = Convert.ToDouble(coords[1], CultureInfo.InvariantCulture);
+                    if (coords.Length > 2)
+                        report.SampleAltitude = Convert.ToDouble(coords[2], CultureInfo.InvariantCulture);
+                }
+
+                else if ((param = ParseReport_ExtractParameter("Sample Comment", line)) != String.Empty)
+                    report.Comment = param;
+
+                else if ((param = ParseReport_ExtractParameter("Sample Size/Error", line)) != String.Empty)
+                {
+                    char[] wspace = new char[] { ' ', '\t' };
+                    string[] items = param.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
+                    if (items.Length > 0)
+                        report.SampleSize = Convert.ToDouble(items[0], CultureInfo.InvariantCulture);
+                    if (items.Length > 1)
+                        report.SampleError = Convert.ToDouble(items[1], CultureInfo.InvariantCulture);
+                    if (items.Length > 2)
+                        report.SampleUnit = items[2]; // FIXME vv/tv
+                }
+
+                else if ((param = ParseReport_ExtractParameter("Sample Taken On", line)) != String.Empty)
+                    report.SampleTime = Convert.ToDateTime(param);
+
+                else if ((param = ParseReport_ExtractParameter("Acquisition Started", line)) != String.Empty)
+                    report.AcquisitionTime = Convert.ToDateTime(param);
+
+                else if ((param = ParseReport_ExtractParameter("Live Time", line)) != String.Empty)
+                    report.Livetime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
+
+                else if ((param = ParseReport_ExtractParameter("Real Time", line)) != String.Empty)
+                    report.Realtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
+
+                else if ((param = ParseReport_ExtractParameter("Dead Time", line)) != String.Empty)
+                    report.Deadtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
+
+                else if ((param = ParseReport_ExtractParameter("Nuclide Library Used", line)) != String.Empty)
+                    report.NuclideLibrary = param;
+
+                else if (line.StartsWith("+++INTR+++"))                
+                    ParseReport_INTR(reader, report);                
+
+                else if (line.StartsWith("+++MDA+++"))                
+                    ParseReport_MDA(reader, report);                
+            }            
 
             return report;
+        }
+
+        private void ParseReport_INTR(TextReader reader, SpectrumReport report)
+        {
+            report.Results.Clear();
+            string line;
+            char[] wspace = new char[] { ' ', '\t' };
+            while ((line = reader.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (line.StartsWith("---INTR---"))
+                    return;
+                
+                string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
+                if(items.Length == 6)
+                {
+                    SpectrumResult result = new SpectrumResult();
+                    result.NuclideName = items[0].Trim();
+                    result.Activity = Convert.ToDouble(items[4], CultureInfo.InvariantCulture);
+                    result.ActivityUncertainty = Convert.ToDouble(items[5], CultureInfo.InvariantCulture);
+                    report.Results.Add(result);
+                }
+            }
+        }
+
+        private void ParseReport_MDA(TextReader reader, SpectrumReport report)
+        {
+            string line;
+            char[] wspace = new char[] { ' ', '\t' };
+            while ((line = reader.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (line.StartsWith("---MDA---"))
+                    return;
+
+                string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
+                if (items.Length == 7)
+                {
+                    string nuclname = items[0].Trim();
+                    SpectrumResult r = report.Results.Find(x => x.NuclideName == nuclname);
+                    if (r != null)
+                        r.MDA = Convert.ToDouble(items[4].Trim(), CultureInfo.InvariantCulture);
+                }
+            }
+        }
+
+        private string ParseReport_ExtractParameter(string tag, string line)
+        {            
+            if (line.StartsWith(tag))
+            {
+                string[] mainDelim = new string[] { ":::" };
+                string[] items = line.Split(mainDelim, StringSplitOptions.RemoveEmptyEntries);
+                if (items.Length > 1)
+                    return items[1].Trim();
+            }
+            return String.Empty;
         }
 
         private void StoreReport(SpectrumReport report)

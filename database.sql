@@ -25,9 +25,8 @@ create table SpectrumInfo
 	Longitude float default null,
 	Altitude float default null,
 	LocationType nvarchar(128) default null,
-	Location nvarchar(256) default null,
-	County nvarchar(128) default null,
-	Community nvarchar(128) default null,
+	Location nvarchar(256) default null,	
+	Community nvarchar(256) default null,
 	SampleWeight float default null,
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
@@ -117,21 +116,24 @@ create proc proc_spectrum_info_insert
 	@Longitude float,
 	@Altitude float,
 	@LocationType nvarchar(128),
-	@Location nvarchar(256),
-	@County nvarchar(128),
-	@Community nvarchar(128),
+	@Location nvarchar(256),	
+	@Community nvarchar(256),
 	@SampleWeight float,
 	@SampleWeightUnit nvarchar(24),
 	@SampleGeometry nvarchar(128),
 	@ExternalID nvarchar(128),
 	@Comment nvarchar(256)
 as	
-	insert into SpectrumInfo
+	insert into SpectrumInfo(ID, CreateDate, UpdateDate, AcquisitionDate, 
+		ReferenceDate, SampleType, Livetime, Laberatory, Operator, 
+		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
+		Location, Community, SampleWeight, SampleWeightUnit, 
+		SampleGeometry, ExternalID, Comment)
 	values(@ID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
 		@ReferenceDate, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
-		@Location, @County, @Community, @SampleWeight, @SampleWeightUnit, 
+		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
 		@SampleGeometry, @ExternalID, @Comment)
 go
 
@@ -189,7 +191,8 @@ create proc proc_spectrum_result_insert
 	@Approved bit,
 	@Comment nvarchar(256)
 as 	
-	insert into SpectrumResult 
+	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, Activity, 
+		ActivityUncertainty, MDA, Evaluated, Approved, Comment)
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, @Activity, 
 		@ActivityUncertainty, @MDA, @Evaluated, @Approved, @Comment)
 go
@@ -202,7 +205,7 @@ create proc proc_spectrum_file_insert
 	@FileExtension nvarchar(16),
 	@FileContent varbinary(max)
 as 	
-	insert into SpectrumFile 
+	insert into SpectrumFile (ID, SpectrumInfoID, CreateDate, UpdateDate, FileExtension, FileContent)
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @FileExtension, @FileContent)
 go
 

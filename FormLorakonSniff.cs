@@ -26,6 +26,7 @@ using System.Diagnostics;
 using System.Xml.Serialization;
 using System.Globalization;
 using System.Data.SQLite;
+using System.Data.SqlClient;
 using CTimer = System.Windows.Forms.Timer;
 
 namespace LorakonSniff
@@ -66,11 +67,9 @@ namespace LorakonSniff
         private void FormLorakonSniff_Load(object sender, EventArgs e)
         {
             log = new Log();
-            if (!log.Create())
-            {
-                MessageBox.Show("Kan ikke opprette logg database");
+            if (!log.Create())            
                 Application.Exit();
-            }
+            
             log.AddMessage("Starting log service");
 
             string InstallationDirectory = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + Path.DirectorySeparatorChar;
@@ -348,7 +347,58 @@ namespace LorakonSniff
 
         private void StoreReport(SpectrumReport report)
         {
-            // Store report in database            
+            SqlConnection connection = new SqlConnection(settings.ConnectionString);
+            connection.Open();
+            SqlCommand command = new SqlCommand("proc_spectrum_info_insert", connection);
+            command.CommandType = System.Data.CommandType.StoredProcedure;
+            Guid specId = Guid.NewGuid();
+
+            command.Parameters.AddWithValue("@ID", specId);
+            command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+            command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+            command.Parameters.AddWithValue("@AcquisitionDate", report.AcquisitionTime);
+            command.Parameters.AddWithValue("@ReferenceDate", report.SampleTime);
+            command.Parameters.AddWithValue("@SampleType", report.SampleType);
+            command.Parameters.AddWithValue("@Livetime", report.Livetime);
+            command.Parameters.AddWithValue("@Laberatory", report.Laboratory);
+            command.Parameters.AddWithValue("@Operator", report.Operator);
+            command.Parameters.AddWithValue("@SampleComponent", report.SampleComponent);
+            command.Parameters.AddWithValue("@Latitude", report.SampleLatitude);
+            command.Parameters.AddWithValue("@Longitude", report.SampleLongitude);
+            command.Parameters.AddWithValue("@Altitude", report.SampleAltitude);
+            command.Parameters.AddWithValue("@LocationType", report.SampleLocationType);
+            command.Parameters.AddWithValue("@Location", report.SampleLocation);
+            command.Parameters.AddWithValue("@Community", report.SampleCommunityCounty);
+            command.Parameters.AddWithValue("@SampleWeight", report.SampleSize);
+            command.Parameters.AddWithValue("@SampleWeightUnit", report.SampleUnit);
+            command.Parameters.AddWithValue("@SampleGeometry", report.SampleGeometry);
+            command.Parameters.AddWithValue("@ExternalID", report.SampleIdentification);
+            command.Parameters.AddWithValue("@Comment", report.Comment);
+
+            command.ExecuteNonQuery();
+
+            command.CommandText = "proc_spectrum_result_insert";
+            foreach (SpectrumResult result in report.Results)
+            {
+                command.Parameters.Clear();
+                command.Parameters.AddWithValue("@ID", Guid.NewGuid());
+                command.Parameters.AddWithValue("@SpectrumInfoID", specId);
+                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@NuclideName", result.NuclideName);
+                command.Parameters.AddWithValue("@Activity", result.Activity);
+                command.Parameters.AddWithValue("@ActivityUncertainty", result.ActivityUncertainty);
+                command.Parameters.AddWithValue("@MDA", result.MDA);
+                command.Parameters.AddWithValue("@Evaluated", 0);
+                command.Parameters.AddWithValue("@Approved", 0);
+                command.Parameters.AddWithValue("@Comment", "");
+
+                command.ExecuteNonQuery();
+            }
+
+            // FIXME: Insert spectrum file
+
+            connection.Close();
         }
 
         public void LoadSettings()

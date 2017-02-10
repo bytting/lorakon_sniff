@@ -50,10 +50,25 @@ namespace LorakonSniff
         public string BackgroundFile { get; set; }
         public string NuclideLibrary { get; set; }
         public double Sigma { get; set; }
+
         public List<SpectrumResult> Results = new List<SpectrumResult>();
+        public List<SpectrumBackground> Backgrounds = new List<SpectrumBackground>();
 
         public SpectrumReport()
         {            
+        }
+    }
+
+    public class SpectrumBackground
+    {        
+        public double Energy { get; set; }
+        public double OrigArea { get; set; }
+        public double OrigAreaUncertainty { get; set; }
+        public double SubtractedArea { get; set; }
+        public double SubtractedAreaUncertainty { get; set; }
+
+        public SpectrumBackground()
+        {
         }
     }
 
@@ -68,5 +83,4 @@ namespace LorakonSniff
         {
         }
     }
-
 }

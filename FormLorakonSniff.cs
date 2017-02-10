@@ -219,16 +219,8 @@ namespace LorakonSniff
         }
 
         private string GenerateReport(string specfile)
-        {
-            string fname = specfile;
-            if (fname.Contains(" ") || fname.Contains("\t"))
-            {
-                fname = fname.Replace(' ', '_');
-                fname = fname.Replace('\t', '_');
-                File.Move(specfile, fname);
-            }            
-
-            string args = fname + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /SCREEN";
+        {            
+            string args = "\"" + specfile + "\" /TEMPLATE=\"" + ReportTemplate + "\" /SECTION=\"\" /NEWFILE /SCREEN";
             Process p = new Process();
             p.StartInfo.FileName = ReportExecutable;
             p.StartInfo.Arguments = args;                        
@@ -356,14 +348,42 @@ namespace LorakonSniff
                 else if ((param = ParseReport_ExtractParameter("Nuclide Library Used", line)) != String.Empty)
                     report.NuclideLibrary = param;
 
-                else if (line.StartsWith("+++INTR+++"))                
-                    ParseReport_INTR(reader, report);                
+                else if (line.StartsWith("+++BKG+++"))
+                    ParseReport_BKG(reader, report);
 
-                else if (line.StartsWith("+++MDA+++"))                
+                else if (line.StartsWith("+++INTR+++"))
+                    ParseReport_INTR(reader, report);
+
+                else if (line.StartsWith("+++MDA+++"))
                     ParseReport_MDA(reader, report);                
             }            
 
             return report;
+        }
+
+        private void ParseReport_BKG(StringReader reader, SpectrumReport report)
+        {
+            report.Backgrounds.Clear();
+            string line;
+            char[] wspace = new char[] { ' ', '\t' };
+            while ((line = reader.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (line.StartsWith("---BKG---"))
+                    return;
+
+                string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
+                if (items.Length == 5)
+                {
+                    SpectrumBackground background = new SpectrumBackground();
+                    background.Energy = Convert.ToDouble(items[0].Trim(), CultureInfo.InvariantCulture);
+                    background.OrigArea = Convert.ToDouble(items[1].Trim(), CultureInfo.InvariantCulture);
+                    background.OrigAreaUncertainty = Convert.ToDouble(items[2].Trim(), CultureInfo.InvariantCulture);
+                    background.SubtractedArea = Convert.ToDouble(items[3].Trim(), CultureInfo.InvariantCulture);
+                    background.SubtractedAreaUncertainty = Convert.ToDouble(items[4].Trim(), CultureInfo.InvariantCulture);
+                    report.Backgrounds.Add(background);
+                }
+            }
         }
 
         private void ParseReport_INTR(StringReader reader, SpectrumReport report)
@@ -457,6 +477,23 @@ namespace LorakonSniff
             command.Parameters.AddWithValue("@Comment", MakeParam(report.Comment));
 
             command.ExecuteNonQuery();
+
+            command.CommandText = "proc_spectrum_background_insert";
+            foreach (SpectrumBackground background in report.Backgrounds)
+            {
+                command.Parameters.Clear();
+                command.Parameters.AddWithValue("@ID", Guid.NewGuid());
+                command.Parameters.AddWithValue("@SpectrumInfoID", specId);
+                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@Energy", MakeParam(background.Energy));
+                command.Parameters.AddWithValue("@OrigArea", MakeParam(background.OrigArea));
+                command.Parameters.AddWithValue("@OrigAreaUncertainty", MakeParam(background.OrigAreaUncertainty));
+                command.Parameters.AddWithValue("@SubtractedArea", MakeParam(background.SubtractedArea));
+                command.Parameters.AddWithValue("@SubtractedAreaUncertainty", MakeParam(background.SubtractedAreaUncertainty));
+
+                command.ExecuteNonQuery();
+            }
 
             command.CommandText = "proc_spectrum_result_insert";
             foreach (SpectrumResult result in report.Results)

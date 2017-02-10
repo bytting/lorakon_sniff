@@ -33,8 +33,7 @@ using CTimer = System.Windows.Forms.Timer;
 namespace LorakonSniff
 {
     public partial class FormLorakonSniff : Form
-    {
-        private bool ApplicationInitalized = false;
+    {        
         private ContextMenu trayMenu = null;
         private Log log = null;
         private Settings settings = null;
@@ -43,8 +42,7 @@ namespace LorakonSniff
         private SQLiteConnection hashes = null;        
         private CTimer timer = null;
         private string ReportExecutable;
-        private string ReportTemplate;
-        private string ReportOutput;
+        private string ReportTemplate;        
 
         public FormLorakonSniff(NotifyIcon trayIcon)
         {
@@ -106,9 +104,7 @@ namespace LorakonSniff
             if (!Directory.Exists(LorakonEnvironment.SettingsPath))
                 Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
             settings = new Settings();
-            LoadSettings();
-
-            ReportOutput = LorakonEnvironment.SettingsPath + Path.DirectorySeparatorChar + "last_report.rpt";
+            LoadSettings();            
 
             tbSettingsWatchDirectory.Text = settings.WatchDirectory;
             tbSettingsConnectionString.Text = settings.ConnectionString;
@@ -129,8 +125,8 @@ namespace LorakonSniff
                 {
                     log.AddMessage("Importing " + fname + " [" + sum + "]");
 
-                    string repfile = GenerateReport(fname);
-                    SpectrumReport report = ParseReport(repfile);
+                    string rep = GenerateReport(fname);
+                    SpectrumReport report = ParseReport(rep);
                     StoreReport(report);
 
                     Hashes.InsertChecksum(hashes, sum);
@@ -166,9 +162,9 @@ namespace LorakonSniff
                     {
                         log.AddMessage("Importing " + evt.FullPath + " [" + sum + "]");
 
-                        string repfile = GenerateReport(evt.FullPath);
-                        SpectrumReport report = ParseReport(repfile);
-                        StoreReport(report);
+                        string rep = GenerateReport(evt.FullPath);
+                        SpectrumReport report = ParseReport(rep);
+                        StoreReport(report);                        
 
                         Hashes.InsertChecksum(hashes, sum);
                     }                    
@@ -178,28 +174,43 @@ namespace LorakonSniff
         } 
        
         private string GenerateReport(string specfile)
-        {   
-            // Generate report
-                     
-            string args = specfile + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /OUTFILE=" + ReportOutput;
+        {            
+            string args = specfile + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /SCREEN";
             Process p = new Process();
             p.StartInfo.FileName = ReportExecutable;
-            p.StartInfo.Arguments = args;            
-            p.StartInfo.WorkingDirectory = Path.GetDirectoryName(ReportOutput);
-            p.StartInfo.UseShellExecute = true;
+            p.StartInfo.Arguments = args;                        
+            p.StartInfo.UseShellExecute = false;
             p.StartInfo.CreateNoWindow = true;
             p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            p.StartInfo.RedirectStandardOutput = true;
+            p.StartInfo.RedirectStandardError = true;
             p.Start();
+
+            string cout = p.StandardOutput.ReadToEnd();
+            string cerr = p.StandardError.ReadToEnd();
+
             p.WaitForExit();
 
-            return ReportOutput;            
+            return cout;            
         }
 
-        private SpectrumReport ParseReport(string repfile)
+        private string ParseReport_ExtractParameter(string tag, string line)
+        {
+            if (line.StartsWith(tag))
+            {
+                string[] mainDelim = new string[] { ":::" };
+                string[] items = line.Split(mainDelim, StringSplitOptions.RemoveEmptyEntries);
+                if (items.Length > 1)
+                    return items[1].Trim();
+            }
+            return String.Empty;
+        }
+
+        private SpectrumReport ParseReport(string rep)
         {
             SpectrumReport report = new SpectrumReport();            
-
-            TextReader reader = File.OpenText(repfile);
+            
+            StringReader reader = new StringReader(rep);
             string line, param;
             while((line = reader.ReadLine()) != null)
             {
@@ -290,7 +301,7 @@ namespace LorakonSniff
             return report;
         }
 
-        private void ParseReport_INTR(TextReader reader, SpectrumReport report)
+        private void ParseReport_INTR(StringReader reader, SpectrumReport report)
         {
             report.Results.Clear();
             string line;
@@ -313,7 +324,7 @@ namespace LorakonSniff
             }
         }
 
-        private void ParseReport_MDA(TextReader reader, SpectrumReport report)
+        private void ParseReport_MDA(StringReader reader, SpectrumReport report)
         {
             string line;
             char[] wspace = new char[] { ' ', '\t' };
@@ -332,18 +343,11 @@ namespace LorakonSniff
                         r.MDA = Convert.ToDouble(items[4].Trim(), CultureInfo.InvariantCulture);
                 }
             }
-        }
+        }        
 
-        private string ParseReport_ExtractParameter(string tag, string line)
-        {            
-            if (line.StartsWith(tag))
-            {
-                string[] mainDelim = new string[] { ":::" };
-                string[] items = line.Split(mainDelim, StringSplitOptions.RemoveEmptyEntries);
-                if (items.Length > 1)
-                    return items[1].Trim();
-            }
-            return String.Empty;
+        private object MakeParam(object o)
+        {
+            return o == null ? DBNull.Value : o;
         }
 
         private void StoreReport(SpectrumReport report)
@@ -400,12 +404,7 @@ namespace LorakonSniff
             // FIXME: Insert spectrum file
 
             connection.Close();
-        }
-
-        private object MakeParam(object o)
-        {
-            return o == null ? DBNull.Value : o;
-        }
+        }        
 
         public void LoadSettings()
         {

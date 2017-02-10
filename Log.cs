@@ -28,34 +28,20 @@ namespace LorakonSniff
         private SQLiteConnection conn = null;
 
         public Log()
-        {                        
-        }        
-
-        public bool Create()
         {
-            try
-            {
-                if (!Directory.Exists(Path.GetDirectoryName(LorakonEnvironment.LogDB)))
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(LorakonEnvironment.LogDB));
-                }
+            if (!Directory.Exists(Path.GetDirectoryName(LorakonEnvironment.LogDB)))        
+                Directory.CreateDirectory(Path.GetDirectoryName(LorakonEnvironment.LogDB));
 
-                conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.LogDB + ";Version=3;Compress=True;");
+            conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.LogDB + ";Version=3;Compress=True;");
 
-                if (!File.Exists(LorakonEnvironment.LogDB))
-                {
-                    SQLiteConnection.CreateFile(LorakonEnvironment.LogDB);
-                    SQLiteCommand cmd = new SQLiteCommand("create table log_entries (created datetime, message text)", conn);
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    conn.Close();
-                }
-            }
-            catch(Exception ex)
+            if (!File.Exists(LorakonEnvironment.LogDB))
             {
-                return false;
+                SQLiteConnection.CreateFile(LorakonEnvironment.LogDB);
+                SQLiteCommand cmd = new SQLiteCommand("create table log_entries (created datetime, message text)", conn);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+                conn.Close();
             }
-            return true;
         }
 
         private void Open()

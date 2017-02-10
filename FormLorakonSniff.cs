@@ -39,7 +39,7 @@ namespace LorakonSniff
         private Settings settings = null;
         private Monitor monitor = null;
         private ConcurrentQueue<FileEvent> events = null;
-        private SQLiteConnection hashes = null;        
+        private Hashes hashes = null;        
         private CTimer timer = null;
         private string ReportExecutable;
         private string ReportTemplate;        
@@ -65,84 +65,94 @@ namespace LorakonSniff
 
         private void FormLorakonSniff_Load(object sender, EventArgs e)
         {
-            log = new Log();
-            if (!log.Create())            
-                Application.Exit();
-            
-            log.AddMessage("Starting log service");
-
-            string InstallationDirectory = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + Path.DirectorySeparatorChar;
-            ReportExecutable = InstallationDirectory + "report.exe";
-            if (!File.Exists(ReportExecutable))
+            try
             {
-                log.AddMessage("Finner ikke filen: " + ReportExecutable);
+                log = new Log();
+                log.AddMessage("Starting log service");
+            }
+            catch(Exception ex)
+            {
                 Application.Exit();
             }
 
-            ReportTemplate = InstallationDirectory + "report_template.tpl";
-            if (!File.Exists(ReportTemplate))
+            try
             {
-                log.AddMessage("Finner ikke filen: " + ReportTemplate);                
-                Application.Exit();
-            }            
+                hashes = new Hashes();
 
-            Visible = false;
-            ShowInTaskbar = false;
-
-            // Set default window layout
-            Rectangle rect = Screen.FromControl(this).Bounds;
-            Width = (rect.Right - rect.Left) / 2;
-            Height = (rect.Bottom - rect.Top) / 2;
-            Left = rect.Left + Width / 2;
-            Top = rect.Top + Height / 2;
-
-            TimeSpan OneDay = new TimeSpan(1, 0, 0, 0);
-            dtLogFrom.Value = DateTime.Now - OneDay;
-            dtLogTo.Value = DateTime.Now + OneDay;
-
-            // Create environment and load settings
-            if (!Directory.Exists(LorakonEnvironment.SettingsPath))
-                Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
-            settings = new Settings();
-            LoadSettings();            
-
-            tbSettingsWatchDirectory.Text = settings.WatchDirectory;
-            tbSettingsConnectionString.Text = settings.ConnectionString;
-            tbSettingsSpectrumFilter.Text = settings.FileFilter;
-
-            if (!Directory.Exists(settings.WatchDirectory))
-                Directory.CreateDirectory(settings.WatchDirectory);
-
-            events = new ConcurrentQueue<FileEvent>();
-            hashes = Hashes.Create();
-
-            // Handle files that has been created after last shutdown and has not been handled before
-            Hashes.Open(hashes);
-            foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
-            {
-                string sum = FileOps.GetChecksum(fname);
-                if (!Hashes.HasChecksum(hashes, sum))
+                string InstallationDirectory = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + Path.DirectorySeparatorChar;
+                ReportExecutable = InstallationDirectory + "report.exe";
+                if (!File.Exists(ReportExecutable))
                 {
-                    log.AddMessage("Importing " + fname + " [" + sum + "]");
+                    log.AddMessage("Finner ikke filen: " + ReportExecutable);
+                    Application.Exit();
+                }
 
-                    string rep = GenerateReport(fname);
-                    SpectrumReport report = ParseReport(rep);
-                    StoreReport(report);
+                ReportTemplate = InstallationDirectory + "report_template.tpl";
+                if (!File.Exists(ReportTemplate))
+                {
+                    log.AddMessage("Finner ikke filen: " + ReportTemplate);
+                    Application.Exit();
+                }
 
-                    Hashes.InsertChecksum(hashes, sum);
+                Visible = false;
+                ShowInTaskbar = false;
+
+                // Set default window layout
+                Rectangle rect = Screen.FromControl(this).Bounds;
+                Width = (rect.Right - rect.Left) / 2;
+                Height = (rect.Bottom - rect.Top) / 2;
+                Left = rect.Left + Width / 2;
+                Top = rect.Top + Height / 2;
+
+                TimeSpan OneDay = new TimeSpan(1, 0, 0, 0);
+                dtLogFrom.Value = DateTime.Now - OneDay;
+                dtLogTo.Value = DateTime.Now + OneDay;
+
+                // Create environment and load settings
+                if (!Directory.Exists(LorakonEnvironment.SettingsPath))
+                    Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
+                settings = new Settings();
+                LoadSettings();
+
+                tbSettingsWatchDirectory.Text = settings.WatchDirectory;
+                tbSettingsConnectionString.Text = settings.ConnectionString;
+                tbSettingsSpectrumFilter.Text = settings.FileFilter;
+
+                if (!Directory.Exists(settings.WatchDirectory))
+                    Directory.CreateDirectory(settings.WatchDirectory);
+
+                events = new ConcurrentQueue<FileEvent>();                
+
+                // Handle files that has been created after last shutdown and has not been handled before                
+                foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
+                {
+                    /*string sum = FileOps.GetChecksum(fname);
+                    if (!hashes.HasChecksum(sum))
+                    {
+                        log.AddMessage("Importing " + fname + " [" + sum + "]");
+
+                        string rep = GenerateReport(fname);
+                        SpectrumReport report = ParseReport(rep);
+                        StoreReport(report);
+
+                        hashes.InsertChecksum(sum);
+                    }*/
                 }                
+
+                // Start timer for processing file events
+                timer = new CTimer();
+                timer.Interval = 500;
+                timer.Tick += timer_Tick;
+                timer.Start();
+
+                // Start monitoring file events
+                monitor = new Monitor(settings, events);
+                monitor.Start();
             }
-            Hashes.Close(ref hashes);
-
-            // Start timer for processing file events
-            timer = new CTimer();
-            timer.Interval = 500;
-            timer.Tick += timer_Tick;
-            timer.Start();
-
-            // Start monitoring file events
-            monitor = new Monitor(settings, events);
-            monitor.Start();
+            catch(Exception ex)
+            {
+                Application.Exit();
+            }
         }
 
         void timer_Tick(object sender, EventArgs e)
@@ -156,26 +166,32 @@ namespace LorakonSniff
                         continue;
                     
                     string sum = FileOps.GetChecksum(evt.FullPath);
-
-                    Hashes.Open(hashes);
-                    if (!Hashes.HasChecksum(hashes, sum))                    
+                    
+                    if (!hashes.HasChecksum(sum))                    
                     {
                         log.AddMessage("Importing " + evt.FullPath + " [" + sum + "]");
 
-                        string rep = GenerateReport(evt.FullPath);
+                        string rep = GenerateReport(evt.FullPath);                        
                         SpectrumReport report = ParseReport(rep);
-                        StoreReport(report);                        
+                        StoreReport(report);
 
-                        Hashes.InsertChecksum(hashes, sum);
-                    }                    
-                    Hashes.Close(ref hashes);
+                        hashes.InsertChecksum(sum);
+                    }                                        
                 }
             }
         } 
        
         private string GenerateReport(string specfile)
-        {            
-            string args = specfile + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /SCREEN";
+        {
+            string fname = specfile;
+            if (fname.Contains(" ") || fname.Contains("\t"))
+            {
+                fname = fname.Replace(' ', '_');
+                fname = fname.Replace('\t', '_');
+                File.Move(specfile, fname);
+            }            
+
+            string args = fname + " /TEMPLATE=" + ReportTemplate + " /SECTION=\"\" /NEWFILE /SCREEN";
             Process p = new Process();
             p.StartInfo.FileName = ReportExecutable;
             p.StartInfo.Arguments = args;                        
@@ -191,6 +207,9 @@ namespace LorakonSniff
 
             p.WaitForExit();
 
+            if(p.ExitCode != 0)            
+                log.AddMessage("report.exe: " + cerr);            
+
             return cout;            
         }
 
@@ -200,8 +219,8 @@ namespace LorakonSniff
             {
                 string[] mainDelim = new string[] { ":::" };
                 string[] items = line.Split(mainDelim, StringSplitOptions.RemoveEmptyEntries);
-                if (items.Length > 1)
-                    return items[1].Trim();
+                if (items.Length > 1)                    
+                    return items[1].Replace('?', ' ').Trim();
             }
             return String.Empty;
         }
@@ -347,7 +366,14 @@ namespace LorakonSniff
 
         private object MakeParam(object o)
         {
-            return o == null ? DBNull.Value : o;
+            if (o == null)
+                return DBNull.Value;
+
+            if(o.GetType() == typeof(DateTime))            
+                if ((DateTime)o == DateTime.MinValue)
+                    return DBNull.Value;
+
+            return o;
         }
 
         private void StoreReport(SpectrumReport report)

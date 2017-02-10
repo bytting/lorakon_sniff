@@ -22,50 +22,66 @@ using System.Data.SQLite;
 
 namespace LorakonSniff
 {
-    public static class Hashes
-    {        
-        public static SQLiteConnection Create()
-        {            
-            SQLiteConnection conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.HashDB + ";Version=3;Compress=True;");            
+    public class Hashes
+    {
+        SQLiteConnection conn = null;
+
+        public Hashes()
+        {
+            conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.HashDB + ";Version=3;Compress=True;");
 
             if (!File.Exists(LorakonEnvironment.HashDB))
-            {                
-                SQLiteConnection.CreateFile(LorakonEnvironment.HashDB);                
+            {
+                SQLiteConnection.CreateFile(LorakonEnvironment.HashDB);
                 SQLiteCommand cmd = new SQLiteCommand("create table sync_objects (checksum char(64))", conn);
                 conn.Open();
                 cmd.ExecuteNonQuery();
                 conn.Close();
             }
+        }        
 
-            return conn;
-        }
-
-        public static void Open(SQLiteConnection conn)
+        private void Open()
         {
             if (conn != null && conn.State != ConnectionState.Open)
                 conn.Open();
         }
 
-        public static void Close(ref SQLiteConnection conn)
+        private void Close()
         {
             if (conn != null && conn.State == ConnectionState.Open)
                 conn.Close();            
         }
 
-        public static void InsertChecksum(SQLiteConnection conn, string cs)
-        {                            
-            SQLiteCommand cmd = new SQLiteCommand("insert into sync_objects (checksum) values('" + cs + "')", conn);                
-            cmd.ExecuteNonQuery();            
+        public void InsertChecksum(string cs)
+        {
+            try
+            {
+                Open();
+                SQLiteCommand cmd = new SQLiteCommand("insert into sync_objects (checksum) values('" + cs + "')", conn);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                Close();
+            }
         }
 
-        public static bool HasChecksum(SQLiteConnection conn, string cs)
-        {            
-            SQLiteCommand cmd = new SQLiteCommand("select count(*) from sync_objects where checksum like '" + cs + "'", conn);                                
-            object o = cmd.ExecuteScalar();
-            if (o == null || o == DBNull.Value)
-                return false;
-            int nRows = Convert.ToInt32(o);
-            return nRows > 0;
+        public bool HasChecksum(string cs)
+        {
+            try
+            {
+                Open();
+                SQLiteCommand cmd = new SQLiteCommand("select count(*) from sync_objects where checksum like '" + cs + "'", conn);
+                object o = cmd.ExecuteScalar();
+                if (o == null || o == DBNull.Value)
+                    return false;
+                int nRows = Convert.ToInt32(o);
+                return nRows > 0;
+            }
+            finally
+            {
+                Close();
+            }
         }
     }
 }

@@ -15,8 +15,8 @@ create table SpectrumInfo
 	CreateDate datetime2 not null,
 	UpdateDate datetime2 not null,
 	AcquisitionDate datetime2 not null,
-	ReferenceDate datetime2 not null,	
-	SampleType nvarchar(256) not null,
+	ReferenceDate datetime2 default null,	
+	SampleType nvarchar(256) default null,
 	Livetime int not null,	
 	Laberatory nvarchar(128) default null,
 	Operator nvarchar(128) default null,
@@ -31,7 +31,7 @@ create table SpectrumInfo
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
 	ExternalID nvarchar(128) default null,
-	Comment nvarchar(256)
+	Comment nvarchar(256) default null
 ) 
 go
 
@@ -47,7 +47,7 @@ create table SpectrumResult
 	MDA float default null,
 	Evaluated bit default 0,
 	Approved bit default 0,
-	Comment nvarchar(256),
+	Comment nvarchar(256) default null,
 	constraint FK_SpectrumResult_SpectrumInfo 
 		foreign key (SpectrumInfoID) 
 		references SpectrumInfo(ID) 

@@ -25,6 +25,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.Xml.Serialization;
 using System.Globalization;
+using System.Data;
 using System.Data.SQLite;
 using System.Data.SqlClient;
 using CTimer = System.Windows.Forms.Timer;
@@ -350,30 +351,30 @@ namespace LorakonSniff
             SqlConnection connection = new SqlConnection(settings.ConnectionString);
             connection.Open();
             SqlCommand command = new SqlCommand("proc_spectrum_info_insert", connection);
-            command.CommandType = System.Data.CommandType.StoredProcedure;
-            Guid specId = Guid.NewGuid();
+            command.CommandType = CommandType.StoredProcedure;
+            Guid specId = Guid.NewGuid();            
 
             command.Parameters.AddWithValue("@ID", specId);
             command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
             command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-            command.Parameters.AddWithValue("@AcquisitionDate", report.AcquisitionTime);
-            command.Parameters.AddWithValue("@ReferenceDate", report.SampleTime);
-            command.Parameters.AddWithValue("@SampleType", report.SampleType);
-            command.Parameters.AddWithValue("@Livetime", report.Livetime);
-            command.Parameters.AddWithValue("@Laberatory", report.Laboratory);
-            command.Parameters.AddWithValue("@Operator", report.Operator);
-            command.Parameters.AddWithValue("@SampleComponent", report.SampleComponent);
-            command.Parameters.AddWithValue("@Latitude", report.SampleLatitude);
-            command.Parameters.AddWithValue("@Longitude", report.SampleLongitude);
-            command.Parameters.AddWithValue("@Altitude", report.SampleAltitude);
-            command.Parameters.AddWithValue("@LocationType", report.SampleLocationType);
-            command.Parameters.AddWithValue("@Location", report.SampleLocation);
-            command.Parameters.AddWithValue("@Community", report.SampleCommunityCounty);
-            command.Parameters.AddWithValue("@SampleWeight", report.SampleSize);
-            command.Parameters.AddWithValue("@SampleWeightUnit", report.SampleUnit);
-            command.Parameters.AddWithValue("@SampleGeometry", report.SampleGeometry);
-            command.Parameters.AddWithValue("@ExternalID", report.SampleIdentification);
-            command.Parameters.AddWithValue("@Comment", report.Comment);
+            command.Parameters.AddWithValue("@AcquisitionDate", MakeParam(report.AcquisitionTime));
+            command.Parameters.AddWithValue("@ReferenceDate", MakeParam(report.SampleTime));
+            command.Parameters.AddWithValue("@SampleType", MakeParam(report.SampleType));
+            command.Parameters.AddWithValue("@Livetime", MakeParam(report.Livetime));
+            command.Parameters.AddWithValue("@Laberatory", MakeParam(report.Laboratory));
+            command.Parameters.AddWithValue("@Operator", MakeParam(report.Operator));
+            command.Parameters.AddWithValue("@SampleComponent", MakeParam(report.SampleComponent));
+            command.Parameters.AddWithValue("@Latitude", MakeParam(report.SampleLatitude));
+            command.Parameters.AddWithValue("@Longitude", MakeParam(report.SampleLongitude));
+            command.Parameters.AddWithValue("@Altitude", MakeParam(report.SampleAltitude));
+            command.Parameters.AddWithValue("@LocationType", MakeParam(report.SampleLocationType));
+            command.Parameters.AddWithValue("@Location", MakeParam(report.SampleLocation));
+            command.Parameters.AddWithValue("@Community", MakeParam(report.SampleCommunityCounty));
+            command.Parameters.AddWithValue("@SampleWeight", MakeParam(report.SampleSize));
+            command.Parameters.AddWithValue("@SampleWeightUnit", MakeParam(report.SampleUnit));
+            command.Parameters.AddWithValue("@SampleGeometry", MakeParam(report.SampleGeometry));
+            command.Parameters.AddWithValue("@ExternalID", MakeParam(report.SampleIdentification));
+            command.Parameters.AddWithValue("@Comment", MakeParam(report.Comment));
 
             command.ExecuteNonQuery();
 
@@ -385,10 +386,10 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@SpectrumInfoID", specId);
                 command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
                 command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@NuclideName", result.NuclideName);
-                command.Parameters.AddWithValue("@Activity", result.Activity);
-                command.Parameters.AddWithValue("@ActivityUncertainty", result.ActivityUncertainty);
-                command.Parameters.AddWithValue("@MDA", result.MDA);
+                command.Parameters.AddWithValue("@NuclideName", MakeParam(result.NuclideName));
+                command.Parameters.AddWithValue("@Activity", MakeParam(result.Activity));
+                command.Parameters.AddWithValue("@ActivityUncertainty", MakeParam(result.ActivityUncertainty));
+                command.Parameters.AddWithValue("@MDA", MakeParam(result.MDA));
                 command.Parameters.AddWithValue("@Evaluated", 0);
                 command.Parameters.AddWithValue("@Approved", 0);
                 command.Parameters.AddWithValue("@Comment", "");
@@ -399,6 +400,11 @@ namespace LorakonSniff
             // FIXME: Insert spectrum file
 
             connection.Close();
+        }
+
+        private object MakeParam(object o)
+        {
+            return o == null ? DBNull.Value : o;
         }
 
         public void LoadSettings()

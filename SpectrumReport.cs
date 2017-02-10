@@ -50,8 +50,7 @@ namespace LorakonSniff
         public List<SpectrumResult> Results = new List<SpectrumResult>();
 
         public SpectrumReport()
-        {
-
+        {            
         }
     }
 
@@ -64,7 +63,6 @@ namespace LorakonSniff
 
         public SpectrumResult()
         {
-
         }
     }
 

@@ -16,6 +16,7 @@
 // Authors: Dag Robole,
 
 using System;
+using System.IO;
 
 namespace LorakonSniff
 {
@@ -23,13 +24,15 @@ namespace LorakonSniff
     public class Settings
     {
         public string WatchDirectory { get; set; }
+        public string DumpDirectory { get; set; }
         public string ConnectionString { get; set; }
         public string FileFilter { get; set; }
         public DateTime LastShutdownTime { get; set; }
 
         public Settings()
         {
-            WatchDirectory = "C:\\LorakonSpectrums";
+            WatchDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "LorakonSpectrums";
+            DumpDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "LorakonSpectrumsDump";
             ConnectionString = "Server=zyrox3;Database=nrpa_lorakon;Trusted_Connection=True;";
             FileFilter = "*.cnf";
             LastShutdownTime = DateTime.MinValue;

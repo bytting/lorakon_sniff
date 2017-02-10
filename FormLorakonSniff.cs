@@ -121,22 +121,35 @@ namespace LorakonSniff
                 if (!Directory.Exists(settings.WatchDirectory))
                     Directory.CreateDirectory(settings.WatchDirectory);
 
+                if (!Directory.Exists(settings.DumpDirectory))
+                    Directory.CreateDirectory(settings.DumpDirectory);
+
                 events = new ConcurrentQueue<FileEvent>();                
 
                 // Handle files that has been created after last shutdown and has not been handled before                
                 foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
                 {
-                    /*string sum = FileOps.GetChecksum(fname);
+                    string sum = FileOps.GetChecksum(fname);
                     if (!hashes.HasChecksum(sum))
                     {
                         log.AddMessage("Importing " + fname + " [" + sum + "]");
 
                         string rep = GenerateReport(fname);
                         SpectrumReport report = ParseReport(rep);
-                        StoreReport(report);
+                        if (ValidateReport(report))
+                        {
+                            StoreReport(report);
+                        }
+                        else
+                        {
+                            log.AddMessage("Invalid report: " + fname);
+                            string extraTag = DateTime.Now.ToShortDateString() + "-" + DateTime.Now.ToShortTimeString().Replace(':', '_') + "-";
+                            File.Move(fname, settings.DumpDirectory + Path.DirectorySeparatorChar +
+                                extraTag + Path.GetFileName(fname));
+                        }
 
                         hashes.InsertChecksum(sum);
-                    }*/
+                    }
                 }                
 
                 // Start timer for processing file events
@@ -173,7 +186,17 @@ namespace LorakonSniff
 
                         string rep = GenerateReport(evt.FullPath);                        
                         SpectrumReport report = ParseReport(rep);
-                        StoreReport(report);
+                        if (ValidateReport(report))
+                        {
+                            StoreReport(report);
+                        }
+                        else
+                        {
+                            log.AddMessage("Invalid report: " + evt.FullPath);
+                            string extraTag = DateTime.Now.ToShortDateString() + "-" + DateTime.Now.ToShortTimeString().Replace(':', '_') + "-";
+                            File.Move(evt.FullPath, settings.DumpDirectory + Path.DirectorySeparatorChar +
+                                extraTag + Path.GetFileName(evt.FullPath));
+                        }
 
                         hashes.InsertChecksum(sum);
                     }                                        
@@ -181,6 +204,20 @@ namespace LorakonSniff
             }
         } 
        
+        private bool ValidateReport(SpectrumReport report)
+        {
+            if (String.IsNullOrEmpty(report.SampleType))
+                return false;
+
+            if (report.AcquisitionTime == DateTime.MinValue)
+                return false;
+
+            if (report.Livetime <= 0)
+                return false;
+
+            return true;
+        }
+
         private string GenerateReport(string specfile)
         {
             string fname = specfile;
@@ -307,6 +344,15 @@ namespace LorakonSniff
                 else if ((param = ParseReport_ExtractParameter("Dead Time", line)) != String.Empty)
                     report.Deadtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
+                else if ((param = ParseReport_ExtractParameter("Sigma", line)) != String.Empty)
+                    report.Sigma = Convert.ToDouble(param, CultureInfo.InvariantCulture);
+
+                else if ((param = ParseReport_ExtractParameter("Filename", line)) != String.Empty)
+                    report.Filename = param;
+
+                else if ((param = ParseReport_ExtractParameter("Background File", line)) != String.Empty)
+                    report.BackgroundFile = param;
+
                 else if ((param = ParseReport_ExtractParameter("Nuclide Library Used", line)) != String.Empty)
                     report.NuclideLibrary = param;
 
@@ -389,6 +435,10 @@ namespace LorakonSniff
             command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
             command.Parameters.AddWithValue("@AcquisitionDate", MakeParam(report.AcquisitionTime));
             command.Parameters.AddWithValue("@ReferenceDate", MakeParam(report.SampleTime));
+            command.Parameters.AddWithValue("@Filename", MakeParam(report.Filename));
+            command.Parameters.AddWithValue("@BackgroundFile", MakeParam(report.BackgroundFile));
+            command.Parameters.AddWithValue("@LibraryFile", MakeParam(report.NuclideLibrary));
+            command.Parameters.AddWithValue("@Sigma", MakeParam(report.Sigma));
             command.Parameters.AddWithValue("@SampleType", MakeParam(report.SampleType));
             command.Parameters.AddWithValue("@Livetime", MakeParam(report.Livetime));
             command.Parameters.AddWithValue("@Laberatory", MakeParam(report.Laboratory));

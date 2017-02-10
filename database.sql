@@ -16,7 +16,11 @@ create table SpectrumInfo
 	UpdateDate datetime2 not null,
 	AcquisitionDate datetime2 not null,
 	ReferenceDate datetime2 default null,	
-	SampleType nvarchar(256) default null,
+	Filename nvarchar(256) default null,
+	BackgroundFile nvarchar(256) default null,
+	LibraryFile nvarchar(256) default null,
+	Sigma float default null,
+	SampleType nvarchar(256) not null,
 	Livetime int not null,	
 	Laberatory nvarchar(128) default null,
 	Operator nvarchar(128) default null,
@@ -32,6 +36,24 @@ create table SpectrumInfo
 	SampleGeometry nvarchar(128) default null,
 	ExternalID nvarchar(128) default null,
 	Comment nvarchar(256) default null
+) 
+go
+
+create table SpectrumBackground
+(
+	ID uniqueidentifier not null primary key,
+	SpectrumInfoID uniqueidentifier not null,
+	CreateDate datetime2 not null,
+	UpdateDate datetime2 not null,
+	Energy float not null,
+	OrigArea float default null,
+	OrigAreaUncertainty float default null,
+	SubtractedArea float default null,
+	SubtractedAreaUncertainty float default null,	
+	constraint FK_SpectrumBackground_SpectrumInfo 
+		foreign key (SpectrumInfoID) 
+		references SpectrumInfo(ID) 
+		on delete cascade
 ) 
 go
 
@@ -107,6 +129,10 @@ create proc proc_spectrum_info_insert
 	@UpdateDate datetime2,
 	@AcquisitionDate datetime2(7),
 	@ReferenceDate datetime2,
+	@Filename nvarchar(256),
+	@BackgroundFile nvarchar(256),
+	@LibraryFile nvarchar(256),
+	@Sigma float,
 	@SampleType nvarchar(256),
 	@Livetime int,	
 	@Laberatory nvarchar(128),
@@ -125,13 +151,13 @@ create proc proc_spectrum_info_insert
 	@Comment nvarchar(256)
 as	
 	insert into SpectrumInfo(ID, CreateDate, UpdateDate, AcquisitionDate, 
-		ReferenceDate, SampleType, Livetime, Laberatory, Operator, 
+		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
 		SampleGeometry, ExternalID, Comment)
 	values(@ID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
-		@ReferenceDate, @SampleType, @Livetime, @Laberatory, @Operator, 
+		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
 		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
 		@SampleGeometry, @ExternalID, @Comment)
@@ -176,6 +202,23 @@ create proc proc_spectrum_info_delete_where_id
 as
 	delete from SpectrumInfo 
 	where ID = @ID
+go
+
+create proc proc_spectrum_background_insert
+	@ID uniqueidentifier,
+	@SpectrumInfoID uniqueidentifier,
+	@CreateDate datetime2,
+	@UpdateDate datetime2,
+	@Energy float,
+	@OrigArea float,
+	@OrigAreaUncertainty float,
+	@SubtractedArea float,
+	@SubtractedAreaUncertainty float
+as 	
+	insert into SpectrumBackground (ID, SpectrumInfoID, CreateDate, UpdateDate, Energy, 
+		OrigArea, OrigAreaUncertainty, SubtractedArea, SubtractedAreaUncertainty)
+	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @Energy, @OrigArea, 
+		@OrigAreaUncertainty, @SubtractedArea, @SubtractedAreaUncertainty)
 go
 
 create proc proc_spectrum_result_insert

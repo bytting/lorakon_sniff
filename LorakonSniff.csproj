@@ -60,9 +60,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CustomEventArgs.cs" />
     <Compile Include="Hashes.cs" />
-    <Compile Include="FileEvent.cs" />
     <Compile Include="FileOps.cs" />
     <Compile Include="FormLorakonSniff.cs">
       <SubType>Form</SubType>

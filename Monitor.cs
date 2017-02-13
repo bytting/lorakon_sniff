@@ -23,6 +23,9 @@ namespace LorakonSniff
 {
     class Monitor
     {
+        public delegate void SpectrumEventHandler(object sender, SpectrumEventArgs e);
+        public event SpectrumEventHandler SpectrumEvent;
+
         FileSystemWatcher monitor = null;
         DateTime lastChange = DateTime.MinValue;        
         ConcurrentQueue<FileEvent> events = null;
@@ -42,6 +45,12 @@ namespace LorakonSniff
         {            
             FileEvent evt = new FileEvent(FileEventType.Created, e.FullPath, String.Empty);
             events.Enqueue(evt);
+
+            if (SpectrumEvent != null)
+            {
+                SpectrumEventArgs args = new SpectrumEventArgs();                                
+                SpectrumEvent(this, args);
+            }
         }
 
         private void monitor_Changed(object sender, FileSystemEventArgs e)
@@ -52,6 +61,12 @@ namespace LorakonSniff
                 FileEvent evt = new FileEvent(FileEventType.Updated, e.FullPath, String.Empty);
                 events.Enqueue(evt);
                 lastChange = lastChangeTime;
+
+                if (SpectrumEvent != null)
+                {
+                    SpectrumEventArgs args = new SpectrumEventArgs();
+                    SpectrumEvent(this, args);
+                }
             }
         }
 
@@ -59,6 +74,12 @@ namespace LorakonSniff
         {
             FileEvent evt = new FileEvent(FileEventType.Renamed, e.FullPath, e.OldFullPath);
             events.Enqueue(evt);
+
+            if (SpectrumEvent != null)
+            {
+                SpectrumEventArgs args = new SpectrumEventArgs();
+                SpectrumEvent(this, args);
+            }
         }
 
         public void Start()

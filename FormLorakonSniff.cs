@@ -111,17 +111,29 @@ namespace LorakonSniff
                 if (!Directory.Exists(LorakonEnvironment.SettingsPath))
                     Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
                 settings = new Settings();
-                LoadSettings();
+                LoadSettings();                
 
-                tbSettingsWatchDirectory.Text = settings.WatchDirectory;
-                tbSettingsConnectionString.Text = settings.ConnectionString;
-                tbSettingsSpectrumFilter.Text = settings.FileFilter;
+                if (!Directory.Exists(settings.RootDirectory))
+                    Directory.CreateDirectory(settings.RootDirectory);
 
                 if (!Directory.Exists(settings.WatchDirectory))
                     Directory.CreateDirectory(settings.WatchDirectory);
 
-                if (!Directory.Exists(settings.DumpDirectory))
-                    Directory.CreateDirectory(settings.DumpDirectory);
+                if (!Directory.Exists(settings.ImportedDirectory))
+                    Directory.CreateDirectory(settings.ImportedDirectory);
+
+                if (!Directory.Exists(settings.OldDirectory))
+                    Directory.CreateDirectory(settings.OldDirectory);
+
+                if (!Directory.Exists(settings.FailedDirectory))
+                    Directory.CreateDirectory(settings.FailedDirectory);
+
+                tbSettingsWatchDirectory.Text = settings.WatchDirectory;
+                tbSettingsImportedDirectory.Text = settings.ImportedDirectory;
+                tbSettingsOldDirectory.Text = settings.OldDirectory;
+                tbSettingsFailedDirectory.Text = settings.FailedDirectory;
+                tbSettingsConnectionString.Text = settings.ConnectionString;
+                tbSettingsSpectrumFilter.Text = settings.FileFilter;
 
                 events = new ConcurrentQueue<FileEvent>();                
 
@@ -130,13 +142,14 @@ namespace LorakonSniff
                 {
                     FileEvent evt = new FileEvent(FileEventType.Created, fname, String.Empty);
                     events.Enqueue(evt);
-                }                
+                }
+
+                Monitor_SpectrumEvent(this, new SpectrumEventArgs());
 
                 // Start monitoring file events
-                monitor = new Monitor(settings, events);
+                monitor = new Monitor(settings, events);                
+                monitor.SpectrumEvent += Monitor_SpectrumEvent;
                 monitor.Start();
-
-                Application.Idle += Application_Idle;
             }
             catch(Exception ex)
             {
@@ -144,7 +157,7 @@ namespace LorakonSniff
             }
         }
 
-        private void Application_Idle(object sender, EventArgs e)
+        private void Monitor_SpectrumEvent(object sender, SpectrumEventArgs e)
         {
             while (!events.IsEmpty)
             {
@@ -154,35 +167,52 @@ namespace LorakonSniff
                     if (!File.Exists(evt.FullPath)) // This happens when the same event are reported more than once
                         continue;
 
-                    string sum = FileOps.GetChecksum(evt.FullPath);
+                    string timestampString = DateTime.Now.Ticks.ToString() + "-";
+
+                    string tmpFname = Path.GetTempFileName();
+                    File.Copy(evt.FullPath, tmpFname, true);
+
+                    string sum = FileOps.GetChecksum(tmpFname);
 
                     if (!hashes.HasChecksum(sum))
                     {
                         log.AddMessage("Generating report: " + evt.FullPath + " [" + sum + "]");
-                        string rep = GenerateReport(evt.FullPath);
+                        string rep = GenerateReport(tmpFname);
+                        File.Delete(tmpFname);
                         SpectrumReport report = ParseReport(rep);
                         if (ValidateReport(report))
                         {
                             log.AddMessage("Importing: " + evt.FullPath + " [" + sum + "]");
                             StoreReport(report);
+                            File.Move(evt.FullPath, settings.ImportedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(evt.FullPath));
                         }
                         else
                         {
                             log.AddMessage("Invalid report: " + evt.FullPath + " [" + sum + "]");
-                            string extraTag = DateTime.Now.ToShortDateString() + "-" + DateTime.Now.ToShortTimeString().Replace(':', '_') + "-";
-                            File.Move(evt.FullPath, settings.DumpDirectory + Path.DirectorySeparatorChar +
-                                extraTag + Path.GetFileName(evt.FullPath));
+                            File.Move(evt.FullPath, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(evt.FullPath));
                         }
 
                         hashes.InsertChecksum(sum);
                     }
                     else
                     {
-                        log.AddMessage("Already imported " + evt.FullPath + " [" + sum + "]");
+                        string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
+                            timestampString + Path.GetFileName(evt.FullPath);
+                        if (!File.Exists(oldFileName))
+                        {
+                            log.AddMessage("Already imported: " + evt.FullPath + " [" + sum + "]");
+                            File.Move(evt.FullPath, oldFileName);
+                        }
+                        else
+                        {
+                            File.Delete(evt.FullPath);
+                        }
                     }
                 }
             }
-        }
+        }        
        
         private bool ValidateReport(SpectrumReport report)
         {
@@ -570,25 +600,55 @@ namespace LorakonSniff
 
         private void btnSettingsSave_Click(object sender, EventArgs e)
         {
-            if(String.IsNullOrEmpty(tbSettingsWatchDirectory.Text))
+            if (String.IsNullOrEmpty(tbSettingsConnectionString.Text))
             {
-                MessageBox.Show("Kan ikke lagre en tom spectrum katalog");
+                MessageBox.Show("Forbindelses streng må fylles inn");
+                return;
+            }
+
+            if (String.IsNullOrEmpty(tbSettingsWatchDirectory.Text))
+            {
+                MessageBox.Show("Katalog for nye spekter må fylles inn");
                 return;
             }
 
             if(!Directory.Exists(tbSettingsWatchDirectory.Text))
             {
-                MessageBox.Show("Valgt spectrum katalog finnes ikke");
+                MessageBox.Show("Katalog for nye spekter finnes ikke");
                 return;
             }
 
-            if (String.IsNullOrEmpty(tbSettingsConnectionString.Text))
+            if (String.IsNullOrEmpty(tbSettingsImportedDirectory.Text))
             {
-                MessageBox.Show("Kan ikke lagre en tom forbindelses streng");
+                MessageBox.Show("Katalog for importerte spekter må fylles inn");
                 return;
             }
+
+            if (!Directory.Exists(tbSettingsImportedDirectory.Text))
+                Directory.CreateDirectory(tbSettingsImportedDirectory.Text);
+
+            if (String.IsNullOrEmpty(tbSettingsOldDirectory.Text))
+            {
+                MessageBox.Show("Katalog for allerede eksisterende spekter må fylles inn");
+                return;
+            }
+
+            if (!Directory.Exists(tbSettingsOldDirectory.Text))
+                Directory.CreateDirectory(tbSettingsOldDirectory.Text);
+
+            if (String.IsNullOrEmpty(tbSettingsFailedDirectory.Text))
+            {
+                MessageBox.Show("Katalog for feilede spekter må fylles inn");
+                return;
+            }
+
+            if (!Directory.Exists(tbSettingsFailedDirectory.Text))
+                Directory.CreateDirectory(tbSettingsFailedDirectory.Text);            
 
             settings.WatchDirectory = tbSettingsWatchDirectory.Text;
+            settings.ImportedDirectory = tbSettingsImportedDirectory.Text;
+            settings.OldDirectory = tbSettingsOldDirectory.Text;
+            settings.FailedDirectory = tbSettingsFailedDirectory.Text;
             settings.ConnectionString = tbSettingsConnectionString.Text;
             settings.FileFilter = tbSettingsSpectrumFilter.Text;
 
@@ -609,6 +669,33 @@ namespace LorakonSniff
                 return;
 
             tbSettingsWatchDirectory.Text = diag.SelectedPath;
+        }
+
+        private void btnSettingsBrowseImportedDirectory_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog diag = new FolderBrowserDialog();
+            if (diag.ShowDialog() != DialogResult.OK)
+                return;
+
+            tbSettingsImportedDirectory.Text = diag.SelectedPath;
+        }
+
+        private void btnSettingsBrowseFailedDirectory_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog diag = new FolderBrowserDialog();
+            if (diag.ShowDialog() != DialogResult.OK)
+                return;
+
+            tbSettingsFailedDirectory.Text = diag.SelectedPath;
+        }
+
+        private void btnSettingsBrowseOldDirectory_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog diag = new FolderBrowserDialog();
+            if (diag.ShowDialog() != DialogResult.OK)
+                return;
+
+            tbSettingsOldDirectory.Text = diag.SelectedPath;
         }
     }
 }

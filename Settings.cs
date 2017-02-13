@@ -23,16 +23,22 @@ namespace LorakonSniff
     [Serializable()]
     public class Settings
     {
+        public string RootDirectory { get; set; }
         public string WatchDirectory { get; set; }
-        public string DumpDirectory { get; set; }
+        public string ImportedDirectory { get; set; }
+        public string OldDirectory { get; set; }
+        public string FailedDirectory { get; set; }
         public string ConnectionString { get; set; }
         public string FileFilter { get; set; }
         public DateTime LastShutdownTime { get; set; }
 
         public Settings()
         {
-            WatchDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "LorakonSpectrums";
-            DumpDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "LorakonSpectrumsDump";
+            RootDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "Lorakon";
+            WatchDirectory = RootDirectory + Path.DirectorySeparatorChar + "New";
+            ImportedDirectory = RootDirectory + Path.DirectorySeparatorChar + "Imported";
+            OldDirectory = RootDirectory + Path.DirectorySeparatorChar + "Old";
+            FailedDirectory = RootDirectory + Path.DirectorySeparatorChar + "Failed";
             ConnectionString = "Server=zyrox3;Database=nrpa_lorakon;Trusted_Connection=True;";
             FileFilter = "*.cnf";
             LastShutdownTime = DateTime.MinValue;

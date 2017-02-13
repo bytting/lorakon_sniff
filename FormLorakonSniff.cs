@@ -39,8 +39,7 @@ namespace LorakonSniff
         private Settings settings = null;
         private Monitor monitor = null;
         private ConcurrentQueue<FileEvent> events = null;
-        private Hashes hashes = null;        
-        private CTimer timer = null;
+        private Hashes hashes = null;                
         private string ReportExecutable;
         private string ReportTemplate;        
 
@@ -129,38 +128,15 @@ namespace LorakonSniff
                 // Handle files that has been created after last shutdown and has not been handled before                
                 foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
                 {
-                    string sum = FileOps.GetChecksum(fname);
-                    if (!hashes.HasChecksum(sum))
-                    {
-                        log.AddMessage("Importing " + fname + " [" + sum + "]");
-
-                        string rep = GenerateReport(fname);
-                        SpectrumReport report = ParseReport(rep);
-                        if (ValidateReport(report))
-                        {
-                            StoreReport(report);
-                        }
-                        else
-                        {
-                            log.AddMessage("Invalid report: " + fname);
-                            string extraTag = DateTime.Now.ToShortDateString() + "-" + DateTime.Now.ToShortTimeString().Replace(':', '_') + "-";
-                            File.Move(fname, settings.DumpDirectory + Path.DirectorySeparatorChar +
-                                extraTag + Path.GetFileName(fname));
-                        }
-
-                        hashes.InsertChecksum(sum);
-                    }
+                    FileEvent evt = new FileEvent(FileEventType.Created, fname, String.Empty);
+                    events.Enqueue(evt);
                 }                
-
-                // Start timer for processing file events
-                timer = new CTimer();
-                timer.Interval = 500;
-                timer.Tick += timer_Tick;
-                timer.Start();
 
                 // Start monitoring file events
                 monitor = new Monitor(settings, events);
                 monitor.Start();
+
+                Application.Idle += Application_Idle;
             }
             catch(Exception ex)
             {
@@ -168,8 +144,8 @@ namespace LorakonSniff
             }
         }
 
-        void timer_Tick(object sender, EventArgs e)
-        {            
+        private void Application_Idle(object sender, EventArgs e)
+        {
             while (!events.IsEmpty)
             {
                 FileEvent evt;
@@ -177,32 +153,36 @@ namespace LorakonSniff
                 {
                     if (!File.Exists(evt.FullPath)) // This happens when the same event are reported more than once
                         continue;
-                    
-                    string sum = FileOps.GetChecksum(evt.FullPath);
-                    
-                    if (!hashes.HasChecksum(sum))                    
-                    {
-                        log.AddMessage("Importing " + evt.FullPath + " [" + sum + "]");
 
-                        string rep = GenerateReport(evt.FullPath);                        
+                    string sum = FileOps.GetChecksum(evt.FullPath);
+
+                    if (!hashes.HasChecksum(sum))
+                    {
+                        log.AddMessage("Generating report: " + evt.FullPath + " [" + sum + "]");
+                        string rep = GenerateReport(evt.FullPath);
                         SpectrumReport report = ParseReport(rep);
                         if (ValidateReport(report))
                         {
+                            log.AddMessage("Importing: " + evt.FullPath + " [" + sum + "]");
                             StoreReport(report);
                         }
                         else
                         {
-                            log.AddMessage("Invalid report: " + evt.FullPath);
+                            log.AddMessage("Invalid report: " + evt.FullPath + " [" + sum + "]");
                             string extraTag = DateTime.Now.ToShortDateString() + "-" + DateTime.Now.ToShortTimeString().Replace(':', '_') + "-";
                             File.Move(evt.FullPath, settings.DumpDirectory + Path.DirectorySeparatorChar +
                                 extraTag + Path.GetFileName(evt.FullPath));
                         }
 
                         hashes.InsertChecksum(sum);
-                    }                                        
+                    }
+                    else
+                    {
+                        log.AddMessage("Already imported " + evt.FullPath + " [" + sum + "]");
+                    }
                 }
             }
-        } 
+        }
        
         private bool ValidateReport(SpectrumReport report)
         {
@@ -550,8 +530,7 @@ namespace LorakonSniff
             settings.LastShutdownTime = DateTime.Now;
             SaveSettings();
 
-            monitor.Stop();
-            timer.Stop();
+            monitor.Stop();            
 
             Application.Exit();
         }

@@ -17,7 +17,7 @@
 
 using System;
 using System.IO;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
@@ -27,6 +27,8 @@ using System.Xml.Serialization;
 using System.Globalization;
 using System.Data;
 using System.Data.SqlClient;
+using System.Threading;
+using CTimer = System.Windows.Forms.Timer;
 
 namespace LorakonSniff
 {
@@ -34,10 +36,10 @@ namespace LorakonSniff
     {        
         private ContextMenu trayMenu = null;
         private Log log = null;
-        private Settings settings = null;
-        private Monitor monitor = null;
-        private ConcurrentQueue<FileEvent> events = null;
-        private Hashes hashes = null;                
+        private Settings settings = null;                
+        private CTimer timer = new CTimer();
+        private Hashes hashes = null;
+        List<string> newFiles = new List<string>();
         private string ReportExecutable;
         private string ReportTemplate;        
 
@@ -134,21 +136,10 @@ namespace LorakonSniff
                 tbSettingsSpectrumFilter.Text = settings.FileFilter;
                 cbSettingsDeleteOldSpectrums.Checked = settings.DeleteOldFiles;
 
-                events = new ConcurrentQueue<FileEvent>();                
-
-                // Handle files that has been created after last shutdown and has not been handled before                
-                foreach (string fname in Directory.EnumerateFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories))
-                {
-                    FileEvent evt = new FileEvent(FileEventType.Created, fname, String.Empty);
-                    events.Enqueue(evt);
-                }
-
-                Monitor_SpectrumEvent(this, new SpectrumEventArgs());
-
-                // Start monitoring file events
-                monitor = new Monitor(settings, events);                
-                monitor.SpectrumEvent += Monitor_SpectrumEvent;
-                monitor.Start();
+                // Start import timer
+                timer.Interval = 5000;
+                timer.Tick += Timer_Tick;
+                timer.Start();
             }
             catch(Exception ex)
             {
@@ -156,74 +147,116 @@ namespace LorakonSniff
             }
         }
 
-        private void Monitor_SpectrumEvent(object sender, SpectrumEventArgs e)
+        public static bool IsFileReadyForRead(string filename)
         {
             try
             {
-                while (!events.IsEmpty)
+                using (FileStream fstream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
-                    FileEvent evt;
-                    if (events.TryDequeue(out evt))
+                    return fstream.Length > 0 ? true : false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            if (newFiles.Count > 0)
+                return;
+
+            try
+            {
+                newFiles.AddRange(Directory.GetFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories));
+
+                foreach (string fname in newFiles)
+                {
+                    bool gainedAccess = true;
+                    int tries = 0;
+                    while (!IsFileReadyForRead(fname))
                     {
-                        if (!File.Exists(evt.FullPath)) // This happens when the same event are reported more than once
-                            continue;
+                        Thread.Sleep(500);
+                        if (tries++ > 10)
+                            gainedAccess = false;
+                    }
 
-                        string timestampString = DateTime.Now.Ticks.ToString() + "-";
+                    if (!gainedAccess)
+                    {
+                        log.AddMessage("FEIL: Fikk ikke tilgang til " + fname);
+                        continue;
+                    }
 
-                        string tmpFname = Path.GetTempFileName() + Path.GetExtension(evt.FullPath).ToUpper();
-                        File.Copy(evt.FullPath, tmpFname, true);
+                    string timestampString = DateTime.Now.Ticks.ToString() + "-";
+                    string sum = FileOps.GetChecksum(fname);
 
-                        string sum = FileOps.GetChecksum(tmpFname);
-
-                        if (!hashes.HasChecksum(sum))
+                    if (!hashes.HasChecksum(sum))
+                    {
+                        log.AddMessage("Genererer rapport: " + fname + " [" + sum + "]");
+                        string reportString = GenerateReport(fname);
+                        SpectrumReport report = ParseReport(reportString);
+                        if (ValidateReport(report))
                         {
-                            log.AddMessage("Genererer rapport: " + evt.FullPath + " [" + sum + "]");
-                            string reportString = GenerateReport(tmpFname);                            
-                            SpectrumReport report = ParseReport(reportString);
-                            if (ValidateReport(report))
-                            {
-                                log.AddMessage("Importerer: " + evt.FullPath + " [" + sum + "]");
-                                StoreReport(reportString, report, tmpFname);
-                                File.Move(evt.FullPath, settings.ImportedDirectory + Path.DirectorySeparatorChar +
-                                    timestampString + Path.GetFileName(evt.FullPath));
-                            }
-                            else
-                            {
-                                log.AddMessage("Ugyldig rapport: " + evt.FullPath + " [" + sum + "]");
-                                File.Move(evt.FullPath, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                    timestampString + Path.GetFileName(evt.FullPath));
-                            }
-
-                            try { File.Delete(tmpFname); } catch { }
-
-                            hashes.InsertChecksum(sum);
+                            log.AddMessage("Importerer: " + fname + " [" + sum + "]");
+                            StoreReport(reportString, report, fname);
+                            File.Move(fname, settings.ImportedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(fname));
                         }
                         else
                         {
-                            if (settings.DeleteOldFiles)
+                            log.AddMessage("Ugyldig rapport: " + fname + " [" + sum + "]");
+                            File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(fname));
+                        }
+
+                        try
+                        {
+                            File.Delete(fname);
+                        }
+                        catch (Exception ex)
+                        {
+                            log.AddMessage("FEIL1: " + ex.Message);
+                        }
+
+                        hashes.InsertChecksum(sum);
+                    }
+                    else
+                    {
+                        if (settings.DeleteOldFiles)
+                        {
+                            log.AddMessage("Sletter allerede importert: " + fname + " [" + sum + "]");
+                            try
                             {
-                                log.AddMessage("Sletter allerede importert: " + evt.FullPath + " [" + sum + "]");
-                                try { File.Delete(evt.FullPath); } catch { }
+                                File.Delete(fname);
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                log.AddMessage("Flytter allerede importert: " + evt.FullPath + " [" + sum + "]");
-                                string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
-                                    timestampString + Path.GetFileName(evt.FullPath);
-                                if (!File.Exists(oldFileName))
-                                {                                    
-                                    File.Move(evt.FullPath, oldFileName);
-                                }                                
+                                log.AddMessage("FEIL2: " + ex.Message);
+                            }
+                        }
+                        else
+                        {
+                            log.AddMessage("Flytter allerede importert: " + fname + " [" + sum + "]");
+                            string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(fname);
+                            if (!File.Exists(oldFileName))
+                            {
+                                File.Move(fname, oldFileName);
                             }
                         }
                     }
-                }
+                }                
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 log.AddMessage("FEIL: " + ex.Message);
             }
-        }        
+            finally
+            {
+                newFiles.Clear();
+            }
+        }                
        
         private bool ValidateReport(SpectrumReport report)
         {
@@ -593,8 +626,6 @@ namespace LorakonSniff
             settings.LastShutdownTime = DateTime.Now;
             SaveSettings();
 
-            monitor.Stop();            
-
             Application.Exit();
         }
 
@@ -687,8 +718,6 @@ namespace LorakonSniff
             settings.DeleteOldFiles = cbSettingsDeleteOldSpectrums.Checked;
 
             SaveSettings();
-
-            monitor = new Monitor(settings, events);
         }
 
         private void btnLogUpdate_Click(object sender, EventArgs e)

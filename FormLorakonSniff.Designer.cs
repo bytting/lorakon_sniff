@@ -64,6 +64,7 @@
             this.panel5 = new System.Windows.Forms.Panel();
             this.btnSettingsBrowseOldDirectory = new System.Windows.Forms.Button();
             this.tbSettingsOldDirectory = new System.Windows.Forms.TextBox();
+            this.cbSettingsDeleteOldSpectrums = new System.Windows.Forms.CheckBox();
             this.tabs.SuspendLayout();
             this.pageSettings.SuspendLayout();
             this.tblSettings.SuspendLayout();
@@ -136,10 +137,12 @@
             this.tblSettings.Controls.Add(this.panel4, 1, 4);
             this.tblSettings.Controls.Add(this.label8, 0, 3);
             this.tblSettings.Controls.Add(this.panel5, 1, 3);
+            this.tblSettings.Controls.Add(this.cbSettingsDeleteOldSpectrums, 1, 7);
             this.tblSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tblSettings.Location = new System.Drawing.Point(3, 3);
             this.tblSettings.Name = "tblSettings";
-            this.tblSettings.RowCount = 8;
+            this.tblSettings.RowCount = 9;
+            this.tblSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.tblSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.tblSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.tblSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -466,6 +469,18 @@
             this.tbSettingsOldDirectory.Size = new System.Drawing.Size(564, 21);
             this.tbSettingsOldDirectory.TabIndex = 1;
             // 
+            // cbSettingsDeleteOldSpectrums
+            // 
+            this.cbSettingsDeleteOldSpectrums.AutoSize = true;
+            this.cbSettingsDeleteOldSpectrums.Checked = true;
+            this.cbSettingsDeleteOldSpectrums.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.cbSettingsDeleteOldSpectrums.Location = new System.Drawing.Point(164, 213);
+            this.cbSettingsDeleteOldSpectrums.Name = "cbSettingsDeleteOldSpectrums";
+            this.cbSettingsDeleteOldSpectrums.Size = new System.Drawing.Size(234, 19);
+            this.cbSettingsDeleteOldSpectrums.TabIndex = 12;
+            this.cbSettingsDeleteOldSpectrums.Text = "Slett spekter som allerede er importert";
+            this.cbSettingsDeleteOldSpectrums.UseVisualStyleBackColor = true;
+            // 
             // FormLorakonSniff
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
@@ -539,6 +554,7 @@
         private System.Windows.Forms.Panel panel5;
         private System.Windows.Forms.TextBox tbSettingsOldDirectory;
         private System.Windows.Forms.Button btnSettingsBrowseOldDirectory;
+        private System.Windows.Forms.CheckBox cbSettingsDeleteOldSpectrums;
     }
 }
 

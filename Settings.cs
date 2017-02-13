@@ -30,6 +30,7 @@ namespace LorakonSniff
         public string FailedDirectory { get; set; }
         public string ConnectionString { get; set; }
         public string FileFilter { get; set; }
+        public bool DeleteOldFiles { get; set; }
         public DateTime LastShutdownTime { get; set; }
 
         public Settings()
@@ -41,6 +42,7 @@ namespace LorakonSniff
             FailedDirectory = RootDirectory + Path.DirectorySeparatorChar + "Failed";
             ConnectionString = "Server=zyrox3;Database=nrpa_lorakon;Trusted_Connection=True;";
             FileFilter = "*.cnf";
+            DeleteOldFiles = true;
             LastShutdownTime = DateTime.MinValue;
         }        
     }

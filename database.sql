@@ -83,8 +83,9 @@ create table SpectrumFile
 	SpectrumInfoID uniqueidentifier not null,
 	CreateDate datetime2 not null,
 	UpdateDate datetime2 not null,
-	FileExtension nvarchar(16) not null,
-	FileContent varbinary(max) not null,
+	SpectrumFileExtension nvarchar(16) not null,
+	SpectrumFileContent varbinary(max) not null,
+	ReportFileContent nvarchar(max) default null,
 	constraint AK_SpectrumInfoID 
 		unique(SpectrumInfoID),
 	constraint FK_SpectrumFile_SpectrumInfo 
@@ -245,10 +246,11 @@ create proc proc_spectrum_file_insert
 	@SpectrumInfoID uniqueidentifier,
 	@CreateDate datetime2,
 	@UpdateDate datetime2,
-	@FileExtension nvarchar(16),
-	@FileContent varbinary(max)
+	@SpectrumFileExtension nvarchar(16),
+	@SpectrumFileContent varbinary(max),
+	@ReportFileContent nvarchar(max)
 as 	
-	insert into SpectrumFile (ID, SpectrumInfoID, CreateDate, UpdateDate, FileExtension, FileContent)
-	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @FileExtension, @FileContent)
+	insert into SpectrumFile (ID, SpectrumInfoID, CreateDate, UpdateDate, SpectrumFileExtension, SpectrumFileContent, ReportFileContent)
+	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @SpectrumFileExtension, @SpectrumFileContent, @ReportFileContent)
 go
 

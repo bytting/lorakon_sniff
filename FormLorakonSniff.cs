@@ -26,9 +26,7 @@ using System.Diagnostics;
 using System.Xml.Serialization;
 using System.Globalization;
 using System.Data;
-using System.Data.SQLite;
 using System.Data.SqlClient;
-using CTimer = System.Windows.Forms.Timer;
 
 namespace LorakonSniff
 {
@@ -67,7 +65,7 @@ namespace LorakonSniff
             try
             {
                 log = new Log();
-                log.AddMessage("Starting log service");
+                log.AddMessage("STARTER SPEKTRUM IMPORT");
             }
             catch(Exception ex)
             {
@@ -134,6 +132,7 @@ namespace LorakonSniff
                 tbSettingsFailedDirectory.Text = settings.FailedDirectory;
                 tbSettingsConnectionString.Text = settings.ConnectionString;
                 tbSettingsSpectrumFilter.Text = settings.FileFilter;
+                cbSettingsDeleteOldSpectrums.Checked = settings.DeleteOldFiles;
 
                 events = new ConcurrentQueue<FileEvent>();                
 
@@ -159,58 +158,70 @@ namespace LorakonSniff
 
         private void Monitor_SpectrumEvent(object sender, SpectrumEventArgs e)
         {
-            while (!events.IsEmpty)
+            try
             {
-                FileEvent evt;
-                if (events.TryDequeue(out evt))
+                while (!events.IsEmpty)
                 {
-                    if (!File.Exists(evt.FullPath)) // This happens when the same event are reported more than once
-                        continue;
-
-                    string timestampString = DateTime.Now.Ticks.ToString() + "-";
-
-                    string tmpFname = Path.GetTempFileName();
-                    File.Copy(evt.FullPath, tmpFname, true);
-
-                    string sum = FileOps.GetChecksum(tmpFname);
-
-                    if (!hashes.HasChecksum(sum))
+                    FileEvent evt;
+                    if (events.TryDequeue(out evt))
                     {
-                        log.AddMessage("Generating report: " + evt.FullPath + " [" + sum + "]");
-                        string rep = GenerateReport(tmpFname);
-                        File.Delete(tmpFname);
-                        SpectrumReport report = ParseReport(rep);
-                        if (ValidateReport(report))
+                        if (!File.Exists(evt.FullPath)) // This happens when the same event are reported more than once
+                            continue;
+
+                        string timestampString = DateTime.Now.Ticks.ToString() + "-";
+
+                        string tmpFname = Path.GetTempFileName() + Path.GetExtension(evt.FullPath).ToUpper();
+                        File.Copy(evt.FullPath, tmpFname, true);
+
+                        string sum = FileOps.GetChecksum(tmpFname);
+
+                        if (!hashes.HasChecksum(sum))
                         {
-                            log.AddMessage("Importing: " + evt.FullPath + " [" + sum + "]");
-                            StoreReport(report);
-                            File.Move(evt.FullPath, settings.ImportedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(evt.FullPath));
+                            log.AddMessage("Genererer rapport: " + evt.FullPath + " [" + sum + "]");
+                            string reportString = GenerateReport(tmpFname);                            
+                            SpectrumReport report = ParseReport(reportString);
+                            if (ValidateReport(report))
+                            {
+                                log.AddMessage("Importerer: " + evt.FullPath + " [" + sum + "]");
+                                StoreReport(reportString, report, tmpFname);
+                                File.Move(evt.FullPath, settings.ImportedDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(evt.FullPath));
+                            }
+                            else
+                            {
+                                log.AddMessage("Ugyldig rapport: " + evt.FullPath + " [" + sum + "]");
+                                File.Move(evt.FullPath, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(evt.FullPath));
+                            }
+
+                            try { File.Delete(tmpFname); } catch { }
+
+                            hashes.InsertChecksum(sum);
                         }
                         else
                         {
-                            log.AddMessage("Invalid report: " + evt.FullPath + " [" + sum + "]");
-                            File.Move(evt.FullPath, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(evt.FullPath));
-                        }
-
-                        hashes.InsertChecksum(sum);
-                    }
-                    else
-                    {
-                        string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
-                            timestampString + Path.GetFileName(evt.FullPath);
-                        if (!File.Exists(oldFileName))
-                        {
-                            log.AddMessage("Already imported: " + evt.FullPath + " [" + sum + "]");
-                            File.Move(evt.FullPath, oldFileName);
-                        }
-                        else
-                        {
-                            File.Delete(evt.FullPath);
+                            if (settings.DeleteOldFiles)
+                            {
+                                log.AddMessage("Sletter allerede importert: " + evt.FullPath + " [" + sum + "]");
+                                try { File.Delete(evt.FullPath); } catch { }
+                            }
+                            else
+                            {
+                                log.AddMessage("Flytter allerede importert: " + evt.FullPath + " [" + sum + "]");
+                                string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(evt.FullPath);
+                                if (!File.Exists(oldFileName))
+                                {                                    
+                                    File.Move(evt.FullPath, oldFileName);
+                                }                                
+                            }
                         }
                     }
                 }
+            }
+            catch(Exception ex)
+            {
+                log.AddMessage("FEIL: " + ex.Message);
             }
         }        
        
@@ -247,7 +258,7 @@ namespace LorakonSniff
             p.WaitForExit();
 
             if(p.ExitCode != 0)            
-                log.AddMessage("report.exe: " + cerr);            
+                log.AddMessage("FEIL: report.exe: " + cerr);            
 
             return cout;            
         }
@@ -440,7 +451,7 @@ namespace LorakonSniff
             }
         }        
 
-        private object MakeParam(object o)
+        private object MakeQueryParam(object o)
         {
             if (o == null)
                 return DBNull.Value;
@@ -452,81 +463,103 @@ namespace LorakonSniff
             return o;
         }
 
-        private void StoreReport(SpectrumReport report)
+        private void StoreReport(string reportString, SpectrumReport report, string spectrumFileName)
         {
-            SqlConnection connection = new SqlConnection(settings.ConnectionString);
-            connection.Open();
-            SqlCommand command = new SqlCommand("proc_spectrum_info_insert", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            Guid specId = Guid.NewGuid();            
+            SqlConnection connection = null;
 
-            command.Parameters.AddWithValue("@ID", specId);
-            command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-            command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-            command.Parameters.AddWithValue("@AcquisitionDate", MakeParam(report.AcquisitionTime));
-            command.Parameters.AddWithValue("@ReferenceDate", MakeParam(report.SampleTime));
-            command.Parameters.AddWithValue("@Filename", MakeParam(report.Filename));
-            command.Parameters.AddWithValue("@BackgroundFile", MakeParam(report.BackgroundFile));
-            command.Parameters.AddWithValue("@LibraryFile", MakeParam(report.NuclideLibrary));
-            command.Parameters.AddWithValue("@Sigma", MakeParam(report.Sigma));
-            command.Parameters.AddWithValue("@SampleType", MakeParam(report.SampleType));
-            command.Parameters.AddWithValue("@Livetime", MakeParam(report.Livetime));
-            command.Parameters.AddWithValue("@Laberatory", MakeParam(report.Laboratory));
-            command.Parameters.AddWithValue("@Operator", MakeParam(report.Operator));
-            command.Parameters.AddWithValue("@SampleComponent", MakeParam(report.SampleComponent));
-            command.Parameters.AddWithValue("@Latitude", MakeParam(report.SampleLatitude));
-            command.Parameters.AddWithValue("@Longitude", MakeParam(report.SampleLongitude));
-            command.Parameters.AddWithValue("@Altitude", MakeParam(report.SampleAltitude));
-            command.Parameters.AddWithValue("@LocationType", MakeParam(report.SampleLocationType));
-            command.Parameters.AddWithValue("@Location", MakeParam(report.SampleLocation));
-            command.Parameters.AddWithValue("@Community", MakeParam(report.SampleCommunityCounty));
-            command.Parameters.AddWithValue("@SampleWeight", MakeParam(report.SampleSize));
-            command.Parameters.AddWithValue("@SampleWeightUnit", MakeParam(report.SampleUnit));
-            command.Parameters.AddWithValue("@SampleGeometry", MakeParam(report.SampleGeometry));
-            command.Parameters.AddWithValue("@ExternalID", MakeParam(report.SampleIdentification));
-            command.Parameters.AddWithValue("@Comment", MakeParam(report.Comment));
-
-            command.ExecuteNonQuery();
-
-            command.CommandText = "proc_spectrum_background_insert";
-            foreach (SpectrumBackground background in report.Backgrounds)
+            try
             {
+                connection = new SqlConnection(settings.ConnectionString);
+                connection.Open();
+                SqlCommand command = new SqlCommand("proc_spectrum_info_insert", connection);
+                command.CommandType = CommandType.StoredProcedure;
+                Guid specId = Guid.NewGuid();
+
+                command.Parameters.AddWithValue("@ID", specId);
+                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@AcquisitionDate", MakeQueryParam(report.AcquisitionTime));
+                command.Parameters.AddWithValue("@ReferenceDate", MakeQueryParam(report.SampleTime));
+                command.Parameters.AddWithValue("@Filename", MakeQueryParam(report.Filename));
+                command.Parameters.AddWithValue("@BackgroundFile", MakeQueryParam(report.BackgroundFile));
+                command.Parameters.AddWithValue("@LibraryFile", MakeQueryParam(report.NuclideLibrary));
+                command.Parameters.AddWithValue("@Sigma", MakeQueryParam(report.Sigma));
+                command.Parameters.AddWithValue("@SampleType", MakeQueryParam(report.SampleType));
+                command.Parameters.AddWithValue("@Livetime", MakeQueryParam(report.Livetime));
+                command.Parameters.AddWithValue("@Laberatory", MakeQueryParam(report.Laboratory));
+                command.Parameters.AddWithValue("@Operator", MakeQueryParam(report.Operator));
+                command.Parameters.AddWithValue("@SampleComponent", MakeQueryParam(report.SampleComponent));
+                command.Parameters.AddWithValue("@Latitude", MakeQueryParam(report.SampleLatitude));
+                command.Parameters.AddWithValue("@Longitude", MakeQueryParam(report.SampleLongitude));
+                command.Parameters.AddWithValue("@Altitude", MakeQueryParam(report.SampleAltitude));
+                command.Parameters.AddWithValue("@LocationType", MakeQueryParam(report.SampleLocationType));
+                command.Parameters.AddWithValue("@Location", MakeQueryParam(report.SampleLocation));
+                command.Parameters.AddWithValue("@Community", MakeQueryParam(report.SampleCommunityCounty));
+                command.Parameters.AddWithValue("@SampleWeight", MakeQueryParam(report.SampleSize));
+                command.Parameters.AddWithValue("@SampleWeightUnit", MakeQueryParam(report.SampleUnit));
+                command.Parameters.AddWithValue("@SampleGeometry", MakeQueryParam(report.SampleGeometry));
+                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));
+                command.Parameters.AddWithValue("@Comment", MakeQueryParam(report.Comment));
+
+                command.ExecuteNonQuery();
+
+                command.CommandText = "proc_spectrum_background_insert";
+                foreach (SpectrumBackground background in report.Backgrounds)
+                {
+                    command.Parameters.Clear();
+                    command.Parameters.AddWithValue("@ID", Guid.NewGuid());
+                    command.Parameters.AddWithValue("@SpectrumInfoID", specId);
+                    command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@Energy", MakeQueryParam(background.Energy));
+                    command.Parameters.AddWithValue("@OrigArea", MakeQueryParam(background.OrigArea));
+                    command.Parameters.AddWithValue("@OrigAreaUncertainty", MakeQueryParam(background.OrigAreaUncertainty));
+                    command.Parameters.AddWithValue("@SubtractedArea", MakeQueryParam(background.SubtractedArea));
+                    command.Parameters.AddWithValue("@SubtractedAreaUncertainty", MakeQueryParam(background.SubtractedAreaUncertainty));
+
+                    command.ExecuteNonQuery();
+                }
+
+                command.CommandText = "proc_spectrum_result_insert";
+                foreach (SpectrumResult result in report.Results)
+                {
+                    command.Parameters.Clear();
+                    command.Parameters.AddWithValue("@ID", Guid.NewGuid());
+                    command.Parameters.AddWithValue("@SpectrumInfoID", specId);
+                    command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@NuclideName", MakeQueryParam(result.NuclideName));
+                    command.Parameters.AddWithValue("@Activity", MakeQueryParam(result.Activity));
+                    command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
+                    command.Parameters.AddWithValue("@MDA", MakeQueryParam(result.MDA));
+                    command.Parameters.AddWithValue("@Evaluated", 0);
+                    command.Parameters.AddWithValue("@Approved", 0);
+                    command.Parameters.AddWithValue("@Comment", "");
+
+                    command.ExecuteNonQuery();
+                }
+
+                command.CommandText = "proc_spectrum_file_insert";
                 command.Parameters.Clear();
                 command.Parameters.AddWithValue("@ID", Guid.NewGuid());
                 command.Parameters.AddWithValue("@SpectrumInfoID", specId);
                 command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
                 command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@Energy", MakeParam(background.Energy));
-                command.Parameters.AddWithValue("@OrigArea", MakeParam(background.OrigArea));
-                command.Parameters.AddWithValue("@OrigAreaUncertainty", MakeParam(background.OrigAreaUncertainty));
-                command.Parameters.AddWithValue("@SubtractedArea", MakeParam(background.SubtractedArea));
-                command.Parameters.AddWithValue("@SubtractedAreaUncertainty", MakeParam(background.SubtractedAreaUncertainty));
+                command.Parameters.AddWithValue("@SpectrumFileExtension", Path.GetExtension(spectrumFileName));
+                command.Parameters.AddWithValue("@SpectrumFileContent", File.ReadAllBytes(spectrumFileName));
+                command.Parameters.AddWithValue("@ReportFileContent", reportString);
 
                 command.ExecuteNonQuery();
             }
-
-            command.CommandText = "proc_spectrum_result_insert";
-            foreach (SpectrumResult result in report.Results)
+            catch(Exception ex)
             {
-                command.Parameters.Clear();
-                command.Parameters.AddWithValue("@ID", Guid.NewGuid());
-                command.Parameters.AddWithValue("@SpectrumInfoID", specId);
-                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@NuclideName", MakeParam(result.NuclideName));
-                command.Parameters.AddWithValue("@Activity", MakeParam(result.Activity));
-                command.Parameters.AddWithValue("@ActivityUncertainty", MakeParam(result.ActivityUncertainty));
-                command.Parameters.AddWithValue("@MDA", MakeParam(result.MDA));
-                command.Parameters.AddWithValue("@Evaluated", 0);
-                command.Parameters.AddWithValue("@Approved", 0);
-                command.Parameters.AddWithValue("@Comment", "");
-
-                command.ExecuteNonQuery();
+                log.AddMessage("FEIL: " + ex.Message);
             }
-
-            // FIXME: Insert spectrum file
-
-            connection.Close();
+            finally
+            {
+                if(connection != null && connection.State == ConnectionState.Open)
+                    connection.Close();
+            }            
         }        
 
         public void LoadSettings()
@@ -651,6 +684,7 @@ namespace LorakonSniff
             settings.FailedDirectory = tbSettingsFailedDirectory.Text;
             settings.ConnectionString = tbSettingsConnectionString.Text;
             settings.FileFilter = tbSettingsSpectrumFilter.Text;
+            settings.DeleteOldFiles = cbSettingsDeleteOldSpectrums.Checked;
 
             SaveSettings();
 

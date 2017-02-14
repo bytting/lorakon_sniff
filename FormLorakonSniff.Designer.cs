@@ -42,39 +42,35 @@
             this.tbSettingsConnectionString = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.tbSettingsSpectrumFilter = new System.Windows.Forms.TextBox();
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.btnSettingsSave = new System.Windows.Forms.Button();
-            this.pageLog = new System.Windows.Forms.TabPage();
-            this.lbLog = new System.Windows.Forms.ListBox();
-            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-            this.label4 = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
-            this.dtLogFrom = new System.Windows.Forms.DateTimePicker();
-            this.dtLogTo = new System.Windows.Forms.DateTimePicker();
-            this.btnLogUpdate = new System.Windows.Forms.Button();
             this.label6 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.panel3 = new System.Windows.Forms.Panel();
-            this.panel4 = new System.Windows.Forms.Panel();
-            this.btnSettingsBrowseImportedDirectory = new System.Windows.Forms.Button();
-            this.btnSettingsBrowseFailedDirectory = new System.Windows.Forms.Button();
             this.tbSettingsImportedDirectory = new System.Windows.Forms.TextBox();
+            this.btnSettingsBrowseImportedDirectory = new System.Windows.Forms.Button();
+            this.panel4 = new System.Windows.Forms.Panel();
             this.tbSettingsFailedDirectory = new System.Windows.Forms.TextBox();
+            this.btnSettingsBrowseFailedDirectory = new System.Windows.Forms.Button();
             this.label8 = new System.Windows.Forms.Label();
             this.panel5 = new System.Windows.Forms.Panel();
-            this.btnSettingsBrowseOldDirectory = new System.Windows.Forms.Button();
             this.tbSettingsOldDirectory = new System.Windows.Forms.TextBox();
+            this.btnSettingsBrowseOldDirectory = new System.Windows.Forms.Button();
             this.cbSettingsDeleteOldSpectrums = new System.Windows.Forms.CheckBox();
+            this.panel2 = new System.Windows.Forms.Panel();
+            this.btnSettingsSave = new System.Windows.Forms.Button();
+            this.pageLog = new System.Windows.Forms.TabPage();
+            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.btnLogUpdate = new System.Windows.Forms.Button();
+            this.tbLog = new System.Windows.Forms.TextBox();
             this.tabs.SuspendLayout();
             this.pageSettings.SuspendLayout();
             this.tblSettings.SuspendLayout();
             this.panel1.SuspendLayout();
-            this.panel2.SuspendLayout();
-            this.pageLog.SuspendLayout();
-            this.tableLayoutPanel1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel4.SuspendLayout();
             this.panel5.SuspendLayout();
+            this.panel2.SuspendLayout();
+            this.pageLog.SuspendLayout();
+            this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // status
@@ -233,119 +229,6 @@
             this.tbSettingsSpectrumFilter.Size = new System.Drawing.Size(639, 21);
             this.tbSettingsSpectrumFilter.TabIndex = 5;
             // 
-            // panel2
-            // 
-            this.panel2.Controls.Add(this.btnSettingsSave);
-            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(3, 488);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(806, 31);
-            this.panel2.TabIndex = 1;
-            // 
-            // btnSettingsSave
-            // 
-            this.btnSettingsSave.Dock = System.Windows.Forms.DockStyle.Right;
-            this.btnSettingsSave.Location = new System.Drawing.Point(666, 0);
-            this.btnSettingsSave.Name = "btnSettingsSave";
-            this.btnSettingsSave.Size = new System.Drawing.Size(140, 31);
-            this.btnSettingsSave.TabIndex = 0;
-            this.btnSettingsSave.Text = "Lagre";
-            this.btnSettingsSave.UseVisualStyleBackColor = true;
-            this.btnSettingsSave.Click += new System.EventHandler(this.btnSettingsSave_Click);
-            // 
-            // pageLog
-            // 
-            this.pageLog.BackColor = System.Drawing.SystemColors.ButtonFace;
-            this.pageLog.Controls.Add(this.lbLog);
-            this.pageLog.Controls.Add(this.tableLayoutPanel1);
-            this.pageLog.Location = new System.Drawing.Point(4, 24);
-            this.pageLog.Name = "pageLog";
-            this.pageLog.Padding = new System.Windows.Forms.Padding(3);
-            this.pageLog.Size = new System.Drawing.Size(812, 522);
-            this.pageLog.TabIndex = 2;
-            this.pageLog.Text = "Logg";
-            // 
-            // lbLog
-            // 
-            this.lbLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lbLog.FormattingEnabled = true;
-            this.lbLog.ItemHeight = 15;
-            this.lbLog.Location = new System.Drawing.Point(3, 98);
-            this.lbLog.Name = "lbLog";
-            this.lbLog.Size = new System.Drawing.Size(806, 421);
-            this.lbLog.TabIndex = 0;
-            // 
-            // tableLayoutPanel1
-            // 
-            this.tableLayoutPanel1.ColumnCount = 4;
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 15F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 35F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 15F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 35F));
-            this.tableLayoutPanel1.Controls.Add(this.label4, 0, 1);
-            this.tableLayoutPanel1.Controls.Add(this.label5, 2, 1);
-            this.tableLayoutPanel1.Controls.Add(this.dtLogFrom, 1, 1);
-            this.tableLayoutPanel1.Controls.Add(this.dtLogTo, 3, 1);
-            this.tableLayoutPanel1.Controls.Add(this.btnLogUpdate, 3, 2);
-            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.tableLayoutPanel1.Location = new System.Drawing.Point(3, 3);
-            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 3;
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(806, 95);
-            this.tableLayoutPanel1.TabIndex = 1;
-            // 
-            // label4
-            // 
-            this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(92, 30);
-            this.label4.Name = "label4";
-            this.label4.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
-            this.label4.Size = new System.Drawing.Size(25, 21);
-            this.label4.TabIndex = 0;
-            this.label4.Text = "Fra";
-            // 
-            // label5
-            // 
-            this.label5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(499, 30);
-            this.label5.Name = "label5";
-            this.label5.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
-            this.label5.Size = new System.Drawing.Size(20, 21);
-            this.label5.TabIndex = 1;
-            this.label5.Text = "Til";
-            // 
-            // dtLogFrom
-            // 
-            this.dtLogFrom.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dtLogFrom.Location = new System.Drawing.Point(123, 33);
-            this.dtLogFrom.Name = "dtLogFrom";
-            this.dtLogFrom.Size = new System.Drawing.Size(276, 21);
-            this.dtLogFrom.TabIndex = 2;
-            // 
-            // dtLogTo
-            // 
-            this.dtLogTo.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dtLogTo.Location = new System.Drawing.Point(525, 33);
-            this.dtLogTo.Name = "dtLogTo";
-            this.dtLogTo.Size = new System.Drawing.Size(278, 21);
-            this.dtLogTo.TabIndex = 3;
-            // 
-            // btnLogUpdate
-            // 
-            this.btnLogUpdate.Dock = System.Windows.Forms.DockStyle.Right;
-            this.btnLogUpdate.Location = new System.Drawing.Point(668, 63);
-            this.btnLogUpdate.Name = "btnLogUpdate";
-            this.btnLogUpdate.Size = new System.Drawing.Size(135, 29);
-            this.btnLogUpdate.TabIndex = 4;
-            this.btnLogUpdate.Text = "Oppdater";
-            this.btnLogUpdate.UseVisualStyleBackColor = true;
-            this.btnLogUpdate.Click += new System.EventHandler(this.btnLogUpdate_Click);
-            // 
             // label6
             // 
             this.label6.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -378,15 +261,14 @@
             this.panel3.Size = new System.Drawing.Size(639, 24);
             this.panel3.TabIndex = 8;
             // 
-            // panel4
+            // tbSettingsImportedDirectory
             // 
-            this.panel4.Controls.Add(this.tbSettingsFailedDirectory);
-            this.panel4.Controls.Add(this.btnSettingsBrowseFailedDirectory);
-            this.panel4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel4.Location = new System.Drawing.Point(164, 123);
-            this.panel4.Name = "panel4";
-            this.panel4.Size = new System.Drawing.Size(639, 24);
-            this.panel4.TabIndex = 9;
+            this.tbSettingsImportedDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsImportedDirectory.Location = new System.Drawing.Point(0, 0);
+            this.tbSettingsImportedDirectory.Name = "tbSettingsImportedDirectory";
+            this.tbSettingsImportedDirectory.ReadOnly = true;
+            this.tbSettingsImportedDirectory.Size = new System.Drawing.Size(564, 21);
+            this.tbSettingsImportedDirectory.TabIndex = 1;
             // 
             // btnSettingsBrowseImportedDirectory
             // 
@@ -399,6 +281,25 @@
             this.btnSettingsBrowseImportedDirectory.UseVisualStyleBackColor = true;
             this.btnSettingsBrowseImportedDirectory.Click += new System.EventHandler(this.btnSettingsBrowseImportedDirectory_Click);
             // 
+            // panel4
+            // 
+            this.panel4.Controls.Add(this.tbSettingsFailedDirectory);
+            this.panel4.Controls.Add(this.btnSettingsBrowseFailedDirectory);
+            this.panel4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panel4.Location = new System.Drawing.Point(164, 123);
+            this.panel4.Name = "panel4";
+            this.panel4.Size = new System.Drawing.Size(639, 24);
+            this.panel4.TabIndex = 9;
+            // 
+            // tbSettingsFailedDirectory
+            // 
+            this.tbSettingsFailedDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsFailedDirectory.Location = new System.Drawing.Point(0, 0);
+            this.tbSettingsFailedDirectory.Name = "tbSettingsFailedDirectory";
+            this.tbSettingsFailedDirectory.ReadOnly = true;
+            this.tbSettingsFailedDirectory.Size = new System.Drawing.Size(564, 21);
+            this.tbSettingsFailedDirectory.TabIndex = 1;
+            // 
             // btnSettingsBrowseFailedDirectory
             // 
             this.btnSettingsBrowseFailedDirectory.Dock = System.Windows.Forms.DockStyle.Right;
@@ -409,24 +310,6 @@
             this.btnSettingsBrowseFailedDirectory.Text = "...";
             this.btnSettingsBrowseFailedDirectory.UseVisualStyleBackColor = true;
             this.btnSettingsBrowseFailedDirectory.Click += new System.EventHandler(this.btnSettingsBrowseFailedDirectory_Click);
-            // 
-            // tbSettingsImportedDirectory
-            // 
-            this.tbSettingsImportedDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsImportedDirectory.Location = new System.Drawing.Point(0, 0);
-            this.tbSettingsImportedDirectory.Name = "tbSettingsImportedDirectory";
-            this.tbSettingsImportedDirectory.ReadOnly = true;
-            this.tbSettingsImportedDirectory.Size = new System.Drawing.Size(564, 21);
-            this.tbSettingsImportedDirectory.TabIndex = 1;
-            // 
-            // tbSettingsFailedDirectory
-            // 
-            this.tbSettingsFailedDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsFailedDirectory.Location = new System.Drawing.Point(0, 0);
-            this.tbSettingsFailedDirectory.Name = "tbSettingsFailedDirectory";
-            this.tbSettingsFailedDirectory.ReadOnly = true;
-            this.tbSettingsFailedDirectory.Size = new System.Drawing.Size(564, 21);
-            this.tbSettingsFailedDirectory.TabIndex = 1;
             // 
             // label8
             // 
@@ -449,6 +332,15 @@
             this.panel5.Size = new System.Drawing.Size(639, 24);
             this.panel5.TabIndex = 11;
             // 
+            // tbSettingsOldDirectory
+            // 
+            this.tbSettingsOldDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsOldDirectory.Location = new System.Drawing.Point(0, 0);
+            this.tbSettingsOldDirectory.Name = "tbSettingsOldDirectory";
+            this.tbSettingsOldDirectory.ReadOnly = true;
+            this.tbSettingsOldDirectory.Size = new System.Drawing.Size(564, 21);
+            this.tbSettingsOldDirectory.TabIndex = 1;
+            // 
             // btnSettingsBrowseOldDirectory
             // 
             this.btnSettingsBrowseOldDirectory.Dock = System.Windows.Forms.DockStyle.Right;
@@ -459,15 +351,6 @@
             this.btnSettingsBrowseOldDirectory.Text = "...";
             this.btnSettingsBrowseOldDirectory.UseVisualStyleBackColor = true;
             this.btnSettingsBrowseOldDirectory.Click += new System.EventHandler(this.btnSettingsBrowseOldDirectory_Click);
-            // 
-            // tbSettingsOldDirectory
-            // 
-            this.tbSettingsOldDirectory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsOldDirectory.Location = new System.Drawing.Point(0, 0);
-            this.tbSettingsOldDirectory.Name = "tbSettingsOldDirectory";
-            this.tbSettingsOldDirectory.ReadOnly = true;
-            this.tbSettingsOldDirectory.Size = new System.Drawing.Size(564, 21);
-            this.tbSettingsOldDirectory.TabIndex = 1;
             // 
             // cbSettingsDeleteOldSpectrums
             // 
@@ -480,6 +363,76 @@
             this.cbSettingsDeleteOldSpectrums.TabIndex = 12;
             this.cbSettingsDeleteOldSpectrums.Text = "Slett spekter som allerede er importert";
             this.cbSettingsDeleteOldSpectrums.UseVisualStyleBackColor = true;
+            // 
+            // panel2
+            // 
+            this.panel2.Controls.Add(this.btnSettingsSave);
+            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.panel2.Location = new System.Drawing.Point(3, 488);
+            this.panel2.Name = "panel2";
+            this.panel2.Size = new System.Drawing.Size(806, 31);
+            this.panel2.TabIndex = 1;
+            // 
+            // btnSettingsSave
+            // 
+            this.btnSettingsSave.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnSettingsSave.Location = new System.Drawing.Point(666, 0);
+            this.btnSettingsSave.Name = "btnSettingsSave";
+            this.btnSettingsSave.Size = new System.Drawing.Size(140, 31);
+            this.btnSettingsSave.TabIndex = 0;
+            this.btnSettingsSave.Text = "Lagre";
+            this.btnSettingsSave.UseVisualStyleBackColor = true;
+            this.btnSettingsSave.Click += new System.EventHandler(this.btnSettingsSave_Click);
+            // 
+            // pageLog
+            // 
+            this.pageLog.BackColor = System.Drawing.SystemColors.ButtonFace;
+            this.pageLog.Controls.Add(this.tbLog);
+            this.pageLog.Controls.Add(this.tableLayoutPanel1);
+            this.pageLog.Location = new System.Drawing.Point(4, 24);
+            this.pageLog.Name = "pageLog";
+            this.pageLog.Padding = new System.Windows.Forms.Padding(3);
+            this.pageLog.Size = new System.Drawing.Size(812, 522);
+            this.pageLog.TabIndex = 2;
+            this.pageLog.Text = "Logg";
+            // 
+            // tableLayoutPanel1
+            // 
+            this.tableLayoutPanel1.ColumnCount = 1;
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.tableLayoutPanel1.Controls.Add(this.btnLogUpdate, 0, 0);
+            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.tableLayoutPanel1.Location = new System.Drawing.Point(3, 3);
+            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+            this.tableLayoutPanel1.RowCount = 1;
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(806, 42);
+            this.tableLayoutPanel1.TabIndex = 1;
+            // 
+            // btnLogUpdate
+            // 
+            this.btnLogUpdate.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnLogUpdate.Location = new System.Drawing.Point(659, 3);
+            this.btnLogUpdate.Name = "btnLogUpdate";
+            this.btnLogUpdate.Size = new System.Drawing.Size(144, 36);
+            this.btnLogUpdate.TabIndex = 4;
+            this.btnLogUpdate.Text = "Hent logg";
+            this.btnLogUpdate.UseVisualStyleBackColor = true;
+            this.btnLogUpdate.Click += new System.EventHandler(this.btnLogUpdate_Click);
+            // 
+            // tbLog
+            // 
+            this.tbLog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbLog.Location = new System.Drawing.Point(3, 45);
+            this.tbLog.Multiline = true;
+            this.tbLog.Name = "tbLog";
+            this.tbLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.tbLog.Size = new System.Drawing.Size(806, 474);
+            this.tbLog.TabIndex = 2;
+            this.tbLog.WordWrap = false;
             // 
             // FormLorakonSniff
             // 
@@ -502,16 +455,16 @@
             this.tblSettings.PerformLayout();
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
-            this.panel2.ResumeLayout(false);
-            this.pageLog.ResumeLayout(false);
-            this.tableLayoutPanel1.ResumeLayout(false);
-            this.tableLayoutPanel1.PerformLayout();
             this.panel3.ResumeLayout(false);
             this.panel3.PerformLayout();
             this.panel4.ResumeLayout(false);
             this.panel4.PerformLayout();
             this.panel5.ResumeLayout(false);
             this.panel5.PerformLayout();
+            this.panel2.ResumeLayout(false);
+            this.pageLog.ResumeLayout(false);
+            this.pageLog.PerformLayout();
+            this.tableLayoutPanel1.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -524,7 +477,6 @@
         private System.Windows.Forms.TabPage pageAbout;
         private System.Windows.Forms.TabPage pageSettings;
         private System.Windows.Forms.TabPage pageLog;
-        private System.Windows.Forms.ListBox lbLog;
         private System.Windows.Forms.TableLayoutPanel tblSettings;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Panel panel1;
@@ -537,10 +489,6 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox tbSettingsSpectrumFilter;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.DateTimePicker dtLogFrom;
-        private System.Windows.Forms.DateTimePicker dtLogTo;
         private System.Windows.Forms.Button btnLogUpdate;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
@@ -555,6 +503,7 @@
         private System.Windows.Forms.TextBox tbSettingsOldDirectory;
         private System.Windows.Forms.Button btnSettingsBrowseOldDirectory;
         private System.Windows.Forms.CheckBox cbSettingsDeleteOldSpectrums;
+        private System.Windows.Forms.TextBox tbLog;
     }
 }
 

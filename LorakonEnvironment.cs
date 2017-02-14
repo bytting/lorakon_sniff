@@ -22,10 +22,8 @@ namespace LorakonSniff
 {
     class LorakonEnvironment
     {
-        //public static string SettingsPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments) + Path.DirectorySeparatorChar + "Lorakon";
-        public static string SettingsPath = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "LorakonSniff";
+        public static string SettingsPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments) + Path.DirectorySeparatorChar + "LorakonSniff";        
         public static string SettingsFile = SettingsPath + Path.DirectorySeparatorChar + "Settings.xml";
-        public static string HashDB = SettingsPath + Path.DirectorySeparatorChar + "LorakonHashes.db";
-        public static string LogDB = SettingsPath + Path.DirectorySeparatorChar + "LorakonLog.db";
+        public static string LogFile = SettingsPath + Path.DirectorySeparatorChar + "Log.txt";        
     }
 }

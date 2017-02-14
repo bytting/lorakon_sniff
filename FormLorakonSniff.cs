@@ -72,6 +72,7 @@ namespace LorakonSniff
             }
             catch(Exception ex)
             {
+                MessageBox.Show(ex.Message);
                 Application.Exit();
             }
 
@@ -103,10 +104,6 @@ namespace LorakonSniff
                 Height = (rect.Bottom - rect.Top) / 2;
                 Left = rect.Left + Width / 2;
                 Top = rect.Top + Height / 2;
-
-                TimeSpan OneDay = new TimeSpan(1, 0, 0, 0);
-                dtLogFrom.Value = DateTime.Now - OneDay;
-                dtLogTo.Value = DateTime.Now + OneDay;
 
                 // Create environment and load settings
                 if (!Directory.Exists(LorakonEnvironment.SettingsPath))
@@ -144,6 +141,7 @@ namespace LorakonSniff
             }
             catch(Exception ex)
             {
+                MessageBox.Show(ex.Message);
                 Application.Exit();
             }
         }
@@ -751,7 +749,7 @@ namespace LorakonSniff
 
         private void btnLogUpdate_Click(object sender, EventArgs e)
         {            
-            lbLog.DataSource = log.GetEntries(dtLogFrom.Value, dtLogTo.Value);            
+            tbLog.Text = File.ReadAllText(LorakonEnvironment.LogFile);
         }
 
         private void btnSettingsBrowseWatchDirectory_Click(object sender, EventArgs e)

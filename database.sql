@@ -95,6 +95,19 @@ create table SpectrumFile
 )
 go
 
+create table SpectrumChecksum
+(		
+	Sha256Sum char(64) not null primary key,
+	SpectrumInfoID uniqueidentifier not null,
+	constraint AK_Checksum 
+		unique(Sha256Sum),
+	constraint FK_SpectrumChecksum_SpectrumInfo 
+		foreign key (SpectrumInfoID) 
+		references SpectrumInfo(ID) 
+		on delete cascade
+)
+go
+
 /* VIEWS */
 
 create view SpectrumInfoLatest
@@ -254,3 +267,15 @@ as
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @SpectrumFileExtension, @SpectrumFileContent, @ReportFileContent)
 go
 
+create proc proc_spectrum_checksum_insert
+	@Sha256Sum char(64),
+	@SpectrumInfoID uniqueidentifier
+as 	
+	insert into SpectrumChecksum (Sha256Sum, SpectrumInfoID) values(@Sha256Sum, @SpectrumInfoID)
+go
+
+create proc proc_spectrum_checksum_count
+	@Sha256Sum char(64)	
+as 	
+	select count(*) from SpectrumChecksum where Sha256Sum = @Sha256Sum
+go

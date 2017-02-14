@@ -16,6 +16,7 @@
 // Authors: Dag Robole,
 
 using System;
+using System.Text;
 using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -147,7 +148,7 @@ namespace LorakonSniff
             }
         }
 
-        public static bool IsFileReadyForRead(string filename)
+        private bool IsFileReadyForRead(string filename)
         {
             try
             {
@@ -162,88 +163,96 @@ namespace LorakonSniff
             }
         }
 
+        private bool WaitForReadAccess(string filename, int timeout)
+        {
+            int elapsed = 0, interval = 500;
+
+            while (!IsFileReadyForRead(filename))
+            {
+                Thread.Sleep(interval);
+                elapsed += interval;
+                if (elapsed > timeout)
+                    return false;
+            }
+
+            return true;            
+        }
+
         private void Timer_Tick(object sender, EventArgs e)
         {
             if (newFiles.Count > 0)
                 return;
 
+            SqlConnection connection = null;
+
             try
             {
                 newFiles.AddRange(Directory.GetFiles(settings.WatchDirectory, settings.FileFilter, SearchOption.AllDirectories));
 
+                if (newFiles.Count <= 0)
+                    return;
+                
+                connection = new SqlConnection(settings.ConnectionString);
+                connection.Open();
+
                 foreach (string fname in newFiles)
                 {
-                    bool gainedAccess = true;
-                    int tries = 0;
-                    while (!IsFileReadyForRead(fname))
+                    if (!WaitForReadAccess(fname, 10000))
                     {
-                        Thread.Sleep(500);
-                        if (tries++ > 10)
-                            gainedAccess = false;
-                    }
-
-                    if (!gainedAccess)
-                    {
-                        log.AddMessage("FEIL: Fikk ikke tilgang til " + fname);
+                        log.AddMessage("FEIL: Får ikke tilgang til filen: " + fname);
                         continue;
                     }
 
                     string timestampString = DateTime.Now.Ticks.ToString() + "-";
-                    string sum = FileOps.GetChecksum(fname);
+                    byte[] spectrum = File.ReadAllBytes(fname);
+                    string checksum = hashes.CalculateChecksum(spectrum);
 
-                    if (!hashes.HasChecksum(sum))
+                    if (!hashes.LookupChecksum(connection, checksum))
                     {
-                        log.AddMessage("Genererer rapport: " + fname + " [" + sum + "]");
+                        log.AddMessage("Genererer rapport: " + fname + " [" + checksum + "]");
+
                         string reportString = GenerateReport(fname);
                         SpectrumReport report = ParseReport(reportString);
+
                         if (ValidateReport(report))
                         {
-                            log.AddMessage("Importerer: " + fname + " [" + sum + "]");
-                            StoreReport(reportString, report, fname);
-                            File.Move(fname, settings.ImportedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(fname));
+                            log.AddMessage("Importerer: " + fname + " [" + checksum + "]");
+
+                            Guid specId = StoreReport(connection, report, reportString, spectrum, Path.GetExtension(fname).ToUpper());
+                            if (specId != Guid.Empty)
+                            {
+                                hashes.StoreChecksum(connection, checksum, specId);
+                                File.Move(fname, settings.ImportedDirectory + Path.DirectorySeparatorChar + timestampString + Path.GetFileName(fname));
+                            }
+                            else
+                            {
+                                File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar + timestampString + Path.GetFileName(fname));
+                            }
                         }
                         else
                         {
-                            log.AddMessage("Ugyldig rapport: " + fname + " [" + sum + "]");
-                            File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(fname));
-                        }
-
-                        try
-                        {
-                            File.Delete(fname);
-                        }
-                        catch (Exception ex)
-                        {
-                            log.AddMessage("FEIL1: " + ex.Message);
-                        }
-
-                        hashes.InsertChecksum(sum);
+                            log.AddMessage("Ugyldig rapport: " + fname + " [" + checksum + "]");
+                            File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar + timestampString + Path.GetFileName(fname));
+                        }                                                
                     }
                     else
                     {
                         if (settings.DeleteOldFiles)
                         {
-                            log.AddMessage("Sletter allerede importert: " + fname + " [" + sum + "]");
+                            log.AddMessage("Sletter allerede importert: " + fname + " [" + checksum + "]");
                             try
                             {
                                 File.Delete(fname);
                             }
                             catch (Exception ex)
                             {
-                                log.AddMessage("FEIL2: " + ex.Message);
+                                log.AddMessage("FEIL: " + ex.Message);
                             }
                         }
                         else
                         {
-                            log.AddMessage("Flytter allerede importert: " + fname + " [" + sum + "]");
-                            string oldFileName = settings.OldDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(fname);
-                            if (!File.Exists(oldFileName))
-                            {
-                                File.Move(fname, oldFileName);
-                            }
+                            log.AddMessage("Flytter allerede importert: " + fname + " [" + checksum + "]");
+                            File.Move(fname, settings.OldDirectory + Path.DirectorySeparatorChar + timestampString + Path.GetFileName(fname));
                         }
                     }
                 }                
@@ -254,6 +263,9 @@ namespace LorakonSniff
             }
             finally
             {
+                if (connection != null && connection.State == ConnectionState.Open)
+                    connection.Close();
+
                 newFiles.Clear();
             }
         }                
@@ -296,6 +308,18 @@ namespace LorakonSniff
             return cout;            
         }
 
+        private string JoinStringArray(string[] array, int startIndex)
+        {        
+            StringBuilder builder = new StringBuilder();
+            for(int i = startIndex; i < array.Length; i++)            
+            {
+                builder.Append(array[i]);
+                builder.Append(' ');
+            }
+
+            return builder.ToString();
+        }
+
         private string ParseReport_ExtractParameter(string tag, string line)
         {
             if (line.StartsWith(tag))
@@ -305,6 +329,7 @@ namespace LorakonSniff
                 if (items.Length > 1)                    
                     return items[1].Replace('?', ' ').Trim();
             }
+
             return String.Empty;
         }
 
@@ -372,7 +397,7 @@ namespace LorakonSniff
                     if (items.Length > 1)
                         report.SampleError = Convert.ToDouble(items[1], CultureInfo.InvariantCulture);
                     if (items.Length > 2)
-                        report.SampleUnit = items[2]; // FIXME vv/tv
+                        report.SampleUnit = JoinStringArray(items, 2);
                 }
 
                 else if ((param = ParseReport_ExtractParameter("Sample Taken On", line)) != String.Empty)
@@ -496,21 +521,23 @@ namespace LorakonSniff
             return o;
         }
 
-        private void StoreReport(string reportString, SpectrumReport report, string spectrumFileName)
+        private Guid StoreReport(SqlConnection connection, SpectrumReport report, string reportString, byte[] spectrum, string spectrumFileExtension)
         {
-            SqlConnection connection = null;
+            Guid specId = Guid.Empty;
+            SqlCommand command = null;
 
             try
-            {
-                connection = new SqlConnection(settings.ConnectionString);
-                connection.Open();
-                SqlCommand command = new SqlCommand("proc_spectrum_info_insert", connection);
-                command.CommandType = CommandType.StoredProcedure;
-                Guid specId = Guid.NewGuid();
+            {                
+                command = new SqlCommand("proc_spectrum_info_insert", connection);
+                command.Transaction = connection.BeginTransaction();
+                command.CommandType = CommandType.StoredProcedure;                
+
+                specId = Guid.NewGuid();
+                DateTime now = DateTime.Now;
 
                 command.Parameters.AddWithValue("@ID", specId);
-                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                command.Parameters.AddWithValue("@CreateDate", now);
+                command.Parameters.AddWithValue("@UpdateDate", now);
                 command.Parameters.AddWithValue("@AcquisitionDate", MakeQueryParam(report.AcquisitionTime));
                 command.Parameters.AddWithValue("@ReferenceDate", MakeQueryParam(report.SampleTime));
                 command.Parameters.AddWithValue("@Filename", MakeQueryParam(report.Filename));
@@ -542,8 +569,8 @@ namespace LorakonSniff
                     command.Parameters.Clear();
                     command.Parameters.AddWithValue("@ID", Guid.NewGuid());
                     command.Parameters.AddWithValue("@SpectrumInfoID", specId);
-                    command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-                    command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@CreateDate", now);
+                    command.Parameters.AddWithValue("@UpdateDate", now);
                     command.Parameters.AddWithValue("@Energy", MakeQueryParam(background.Energy));
                     command.Parameters.AddWithValue("@OrigArea", MakeQueryParam(background.OrigArea));
                     command.Parameters.AddWithValue("@OrigAreaUncertainty", MakeQueryParam(background.OrigAreaUncertainty));
@@ -559,8 +586,8 @@ namespace LorakonSniff
                     command.Parameters.Clear();
                     command.Parameters.AddWithValue("@ID", Guid.NewGuid());
                     command.Parameters.AddWithValue("@SpectrumInfoID", specId);
-                    command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-                    command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
+                    command.Parameters.AddWithValue("@CreateDate", now);
+                    command.Parameters.AddWithValue("@UpdateDate", now);
                     command.Parameters.AddWithValue("@NuclideName", MakeQueryParam(result.NuclideName));
                     command.Parameters.AddWithValue("@Activity", MakeQueryParam(result.Activity));
                     command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
@@ -576,23 +603,25 @@ namespace LorakonSniff
                 command.Parameters.Clear();
                 command.Parameters.AddWithValue("@ID", Guid.NewGuid());
                 command.Parameters.AddWithValue("@SpectrumInfoID", specId);
-                command.Parameters.AddWithValue("@CreateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@UpdateDate", DateTime.Now);
-                command.Parameters.AddWithValue("@SpectrumFileExtension", Path.GetExtension(spectrumFileName));
-                command.Parameters.AddWithValue("@SpectrumFileContent", File.ReadAllBytes(spectrumFileName));
+                command.Parameters.AddWithValue("@CreateDate", now);
+                command.Parameters.AddWithValue("@UpdateDate", now);
+                command.Parameters.AddWithValue("@SpectrumFileExtension", spectrumFileExtension);
+                command.Parameters.AddWithValue("@SpectrumFileContent", spectrum);
                 command.Parameters.AddWithValue("@ReportFileContent", reportString);
 
                 command.ExecuteNonQuery();
+                command.Transaction.Commit();
             }
             catch(Exception ex)
             {
+                if(command != null && command.Transaction != null)
+                    command.Transaction.Rollback();
+
                 log.AddMessage("FEIL: " + ex.Message);
-            }
-            finally
-            {
-                if(connection != null && connection.State == ConnectionState.Open)
-                    connection.Close();
+                return Guid.Empty;
             }            
+
+            return specId;
         }        
 
         public void LoadSettings()

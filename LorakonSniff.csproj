@@ -61,7 +61,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Hashes.cs" />
-    <Compile Include="FileOps.cs" />
     <Compile Include="FormLorakonSniff.cs">
       <SubType>Form</SubType>
     </Compile>

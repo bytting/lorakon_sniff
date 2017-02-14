@@ -17,71 +17,55 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Data;
-using System.Data.SQLite;
+using System.Data.SqlClient;
 
 namespace LorakonSniff
 {
     public class Hashes
     {
-        SQLiteConnection conn = null;
-
         public Hashes()
         {
-            conn = new SQLiteConnection("Data Source=" + LorakonEnvironment.HashDB + ";Version=3;Compress=True;");
-
-            if (!File.Exists(LorakonEnvironment.HashDB))
-            {
-                SQLiteConnection.CreateFile(LorakonEnvironment.HashDB);
-                SQLiteCommand cmd = new SQLiteCommand("create table sync_objects (checksum char(64))", conn);
-                conn.Open();
-                cmd.ExecuteNonQuery();
-                conn.Close();
-            }
         }        
 
-        private void Open()
-        {
-            if (conn != null && conn.State != ConnectionState.Open)
-                conn.Open();
+        public string CalculateChecksum(byte[] buffer)
+        {            
+            var sha = new SHA256Managed();
+            byte[] checksum = sha.ComputeHash(buffer);
+            return BitConverter.ToString(checksum).Replace("-", String.Empty);
         }
 
-        private void Close()
+        public string CalculateChecksum(string filename)
         {
-            if (conn != null && conn.State == ConnectionState.Open)
-                conn.Close();            
-        }
-
-        public void InsertChecksum(string cs)
-        {
-            try
+            using (FileStream stream = File.OpenRead(filename))
             {
-                Open();
-                SQLiteCommand cmd = new SQLiteCommand("insert into sync_objects (checksum) values('" + cs + "')", conn);
-                cmd.ExecuteNonQuery();
-            }
-            finally
-            {
-                Close();
+                var sha = new SHA256Managed();
+                byte[] checksum = sha.ComputeHash(stream);
+                return BitConverter.ToString(checksum).Replace("-", String.Empty);
             }
         }
 
-        public bool HasChecksum(string cs)
+        public void StoreChecksum(SqlConnection connection, string checksum, Guid spectrumId)
+        {                    
+            SqlCommand command = new SqlCommand("proc_spectrum_checksum_insert", connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@Sha256Sum", checksum);
+            command.Parameters.AddWithValue("@SpectrumInfoId", spectrumId);
+            command.ExecuteNonQuery();
+        }
+
+        public bool LookupChecksum(SqlConnection connection, string checksum)
         {
-            try
-            {
-                Open();
-                SQLiteCommand cmd = new SQLiteCommand("select count(*) from sync_objects where checksum like '" + cs + "'", conn);
-                object o = cmd.ExecuteScalar();
-                if (o == null || o == DBNull.Value)
-                    return false;
-                int nRows = Convert.ToInt32(o);
-                return nRows > 0;
-            }
-            finally
-            {
-                Close();
-            }
+            SqlCommand command = new SqlCommand("proc_spectrum_checksum_count", connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@Sha256Sum", checksum);
+            object o = command.ExecuteScalar();
+            if (o == null || o == DBNull.Value)
+                return false;
+
+            int nRows = Convert.ToInt32(o);
+            return nRows > 0;
         }
     }
 }

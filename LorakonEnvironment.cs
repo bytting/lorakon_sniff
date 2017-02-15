@@ -24,6 +24,6 @@ namespace LorakonSniff
     {
         public static string SettingsPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments) + Path.DirectorySeparatorChar + "LorakonSniff";        
         public static string SettingsFile = SettingsPath + Path.DirectorySeparatorChar + "Settings.xml";
-        public static string LogFile = SettingsPath + Path.DirectorySeparatorChar + "Log.txt";        
+        public static string LogFile = SettingsPath + Path.DirectorySeparatorChar + "Log-" + DateTime.Now.Ticks.ToString() + ".txt";        
     }
 }

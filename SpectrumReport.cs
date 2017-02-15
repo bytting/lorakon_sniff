@@ -24,6 +24,7 @@ namespace LorakonSniff
 {
     class SpectrumReport
     {
+        public string AccountIdentification { get; set; }
         public string Laboratory { get; set; }
         public string Operator { get; set; }
         public string SampleTitle { get; set; }

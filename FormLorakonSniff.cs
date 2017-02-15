@@ -270,6 +270,9 @@ namespace LorakonSniff
        
         private bool ValidateReport(SpectrumReport report)
         {
+            if (String.IsNullOrEmpty(report.AccountIdentification))
+                return false;
+
             if (String.IsNullOrEmpty(report.SampleType))
                 return false;
 
@@ -339,9 +342,12 @@ namespace LorakonSniff
             string line, param;
             while((line = reader.ReadLine()) != null)
             {
-                line = line.Trim();                
+                line = line.Trim();
 
-                if((param = ParseReport_ExtractParameter("Laboratory", line)) != String.Empty)                
+                if ((param = ParseReport_ExtractParameter("Account Identification", line)) != String.Empty)
+                    report.AccountIdentification = param;
+
+                if ((param = ParseReport_ExtractParameter("Laboratory", line)) != String.Empty)
                     report.Laboratory = param;
 
                 else if ((param = ParseReport_ExtractParameter("Operator", line)) != String.Empty)
@@ -534,6 +540,7 @@ namespace LorakonSniff
                 DateTime now = DateTime.Now;
 
                 command.Parameters.AddWithValue("@ID", specId);
+                command.Parameters.AddWithValue("@AccountID", MakeQueryParam(report.AccountIdentification));
                 command.Parameters.AddWithValue("@CreateDate", now);
                 command.Parameters.AddWithValue("@UpdateDate", now);
                 command.Parameters.AddWithValue("@AcquisitionDate", MakeQueryParam(report.AcquisitionTime));

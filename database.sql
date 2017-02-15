@@ -1,8 +1,8 @@
 
 /* DATABASE FOR STORING GAMMA SPECTRUMS AND RESULTS */
 
-create database nrpa_lorakon
-go
+--create database nrpa_lorakon
+--go
 
 use nrpa_lorakon
 go
@@ -12,6 +12,7 @@ go
 create table SpectrumInfo
 (
 	ID uniqueidentifier not null primary key,
+	AccountID uniqueidentifier not null,
 	CreateDate datetime2 not null,
 	UpdateDate datetime2 not null,
 	AcquisitionDate datetime2 not null,
@@ -139,6 +140,7 @@ go
 
 create proc proc_spectrum_info_insert
 	@ID uniqueidentifier,
+	@AccountID uniqueidentifier,
 	@CreateDate datetime2,
 	@UpdateDate datetime2,
 	@AcquisitionDate datetime2(7),
@@ -164,12 +166,12 @@ create proc proc_spectrum_info_insert
 	@ExternalID nvarchar(128),
 	@Comment nvarchar(256)
 as	
-	insert into SpectrumInfo(ID, CreateDate, UpdateDate, AcquisitionDate, 
+	insert into SpectrumInfo(ID, AccountID, CreateDate, UpdateDate, AcquisitionDate, 
 		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
 		SampleGeometry, ExternalID, Comment)
-	values(@ID, @CreateDate, @UpdateDate, 
+	values(@ID, @AccountID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
 		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
@@ -180,6 +182,12 @@ go
 create proc proc_spectrum_info_select
 as 
 	select * from SpectrumInfo
+go
+
+create proc proc_spectrum_info_select_where_account
+	@AccountID uniqueidentifier
+as 
+	select * from SpectrumInfo where AccountID = @AccountID
 go
 
 create proc proc_spectrum_info_select_where_acquisitiondate_livetime
@@ -193,6 +201,12 @@ go
 create proc proc_spectrum_info_select_latest
 as 
 	select * from SpectrumInfoLatest
+go
+
+create proc proc_spectrum_info_select_latest_where_account
+	@AccountID uniqueidentifier
+as 
+	select * from SpectrumInfoLatest where AccountID = @AccountID
 go
 
 create proc proc_spectrum_info_select_latest_where_acquisitiondate_livetime

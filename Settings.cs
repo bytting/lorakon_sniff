@@ -25,6 +25,7 @@ namespace LorakonSniff
     {
         public string RootDirectory { get; set; }
         public string WatchDirectory { get; set; }
+        public string WatchDirectory2 { get; set; }
         public string ImportedDirectory { get; set; }
         public string OldDirectory { get; set; }
         public string FailedDirectory { get; set; }
@@ -37,6 +38,7 @@ namespace LorakonSniff
         {
             RootDirectory = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) + "Lorakon";
             WatchDirectory = RootDirectory + Path.DirectorySeparatorChar + "New";
+            WatchDirectory2 = RootDirectory + Path.DirectorySeparatorChar + "New2";
             ImportedDirectory = RootDirectory + Path.DirectorySeparatorChar + "Imported";
             OldDirectory = RootDirectory + Path.DirectorySeparatorChar + "Old";
             FailedDirectory = RootDirectory + Path.DirectorySeparatorChar + "Failed";

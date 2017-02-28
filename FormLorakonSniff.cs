@@ -293,7 +293,9 @@ namespace LorakonSniff
                                 timestampString + Path.GetFileName(fname));
                         }
                     }
-                }                
+                }
+
+                Application.DoEvents();                
             }
             catch (Exception ex)
             {
@@ -515,8 +517,8 @@ namespace LorakonSniff
                 else if (line.StartsWith("+++BKG+++"))
                     ParseReport_BKG(reader, report);
 
-                else if (line.StartsWith("+++INTR+++"))
-                    ParseReport_INTR(reader, report);
+                else if (line.StartsWith("+++INTF+++"))
+                    ParseReport_INTF(reader, report);
 
                 else if (line.StartsWith("+++MDA+++"))
                     ParseReport_MDA(reader, report);                
@@ -550,7 +552,7 @@ namespace LorakonSniff
             }
         }
 
-        private void ParseReport_INTR(StringReader reader, SpectrumReport report)
+        private void ParseReport_INTF(StringReader reader, SpectrumReport report)
         {
             report.Results.Clear();
             string line;
@@ -558,16 +560,17 @@ namespace LorakonSniff
             while ((line = reader.ReadLine()) != null)
             {
                 line = line.Trim();
-                if (line.StartsWith("---INTR---"))
+                if (line.StartsWith("---INTF---"))
                     return;
                 
                 string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
-                if(items.Length == 6)
+                if(items.Length == 4)
                 {
                     SpectrumResult result = new SpectrumResult();
                     result.NuclideName = items[0].Trim();
-                    result.Activity = Convert.ToDouble(items[4], CultureInfo.InvariantCulture);
-                    result.ActivityUncertainty = Convert.ToDouble(items[5], CultureInfo.InvariantCulture);
+                    result.Confidence = Convert.ToDouble(items[1], CultureInfo.InvariantCulture);
+                    result.Activity = Convert.ToDouble(items[2], CultureInfo.InvariantCulture);
+                    result.ActivityUncertainty = Convert.ToDouble(items[3], CultureInfo.InvariantCulture);
                     report.Results.Add(result);
                 }
             }
@@ -680,6 +683,7 @@ namespace LorakonSniff
                     command.Parameters.AddWithValue("@CreateDate", now);
                     command.Parameters.AddWithValue("@UpdateDate", now);
                     command.Parameters.AddWithValue("@NuclideName", MakeQueryParam(result.NuclideName));
+                    command.Parameters.AddWithValue("@Confidence", MakeQueryParam(result.Confidence));
                     command.Parameters.AddWithValue("@Activity", MakeQueryParam(result.Activity));
                     command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
                     command.Parameters.AddWithValue("@MDA", MakeQueryParam(result.MDA));

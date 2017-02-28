@@ -75,7 +75,8 @@ namespace LorakonSniff
 
     public class SpectrumResult
     {
-        public string NuclideName { get; set; }        
+        public string NuclideName { get; set; }
+        public double Confidence { get; set; }
         public double Activity { get; set; }
         public double ActivityUncertainty { get; set; }
         public double MDA { get; set; }

@@ -9,6 +9,36 @@ go
 
 /* TABLES */
 
+delete from SpectrumInfo
+go
+
+IF OBJECT_ID('dbo.SpectrumBackground', 'U') IS NOT NULL DROP TABLE dbo.SpectrumBackground;
+IF OBJECT_ID('dbo.SpectrumResult', 'U') IS NOT NULL DROP TABLE dbo.SpectrumResult;
+IF OBJECT_ID('dbo.SpectrumFile', 'U') IS NOT NULL DROP TABLE dbo.SpectrumFile;
+IF OBJECT_ID('dbo.SpectrumChecksum', 'U') IS NOT NULL DROP TABLE dbo.SpectrumChecksum;
+IF OBJECT_ID('dbo.SpectrumInfo', 'U') IS NOT NULL DROP TABLE dbo.SpectrumInfo;
+
+IF EXISTS(SELECT * FROM sys.views WHERE name = 'SpectrumInfoLatest' AND schema_id = SCHEMA_ID('dbo')) DROP VIEW dbo.SpectrumInfoLatest;
+
+if object_id('func_make_extended_acquisitiondate') is not NULL DROP FUNCTION dbo.func_make_extended_acquisitiondate;
+
+IF (OBJECT_ID('proc_spectrum_info_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_insert;
+IF (OBJECT_ID('proc_spectrum_info_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select;
+IF (OBJECT_ID('proc_spectrum_info_select_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_account;
+IF (OBJECT_ID('proc_spectrum_info_select_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_acquisitiondate_livetime;
+IF (OBJECT_ID('proc_spectrum_info_select_latest') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest;
+IF (OBJECT_ID('proc_spectrum_info_select_latest_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account;
+IF (OBJECT_ID('proc_spectrum_info_select_latest_where_account_year') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account_year;
+IF (OBJECT_ID('proc_spectrum_info_select_latest_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_acquisitiondate_livetime;
+IF (OBJECT_ID('proc_spectrum_info_count_id_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_count_id_where_acquisitiondate_livetime;
+IF (OBJECT_ID('proc_spectrum_info_delete_where_id') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_delete_where_id;
+IF (OBJECT_ID('proc_spectrum_background_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_background_insert;
+IF (OBJECT_ID('proc_spectrum_result_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_result_insert;
+IF (OBJECT_ID('proc_spectrum_file_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_file_insert;
+IF (OBJECT_ID('proc_spectrum_checksum_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_insert;
+IF (OBJECT_ID('proc_spectrum_checksum_count') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_count;
+go
+
 create table SpectrumInfo
 (
 	ID uniqueidentifier not null primary key,
@@ -65,6 +95,7 @@ create table SpectrumResult
 	CreateDate datetime2 not null,
 	UpdateDate datetime2 not null,
 	NuclideName nvarchar(24) not null,
+	Confidence float default null,
 	Activity float default null,
 	ActivityUncertainty float default null,
 	MDA float default null,
@@ -181,48 +212,72 @@ go
 
 create proc proc_spectrum_info_select
 as 
-	select * from SpectrumInfo
+	select * 
+	from SpectrumInfo 
+	order by CreateDate
 go
 
 create proc proc_spectrum_info_select_where_account
 	@AccountID uniqueidentifier
 as 
-	select * from SpectrumInfo where AccountID = @AccountID
+	select * 
+	from SpectrumInfo 
+	where AccountID = @AccountID 
+	order by CreateDate
 go
 
 create proc proc_spectrum_info_select_where_acquisitiondate_livetime
 	@AcquisitionDate datetime2,
 	@Livetime int
 as 	
-	select * from SpectrumInfo 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)
+	select * 
+	from SpectrumInfo 
+	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
+	order by CreateDate
 go
 
 create proc proc_spectrum_info_select_latest
 as 
-	select * from SpectrumInfoLatest
+	select * 
+	from SpectrumInfoLatest
 go
 
 create proc proc_spectrum_info_select_latest_where_account
 	@AccountID uniqueidentifier
 as 
-	select * from SpectrumInfoLatest where AccountID = @AccountID
+	select * 
+	from SpectrumInfoLatest 
+	where AccountID = @AccountID 
+	order by CreateDate
+go
+
+create proc proc_spectrum_info_select_latest_where_account_year
+	@AccountID uniqueidentifier,
+	@year int
+as 
+	select * 
+	from SpectrumInfoLatest 
+	where AccountID = @AccountID and datepart(year, CreateDate) = @year 
+	order by CreateDate
 go
 
 create proc proc_spectrum_info_select_latest_where_acquisitiondate_livetime
 	@AcquisitionDate datetime2,
 	@Livetime int
 as 
-	select top(1) * from SpectrumInfoLatest 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)
+	select top(1) * 
+	from SpectrumInfoLatest 
+	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
+	order by CreateDate
 go
 
 create proc proc_spectrum_info_count_id_where_acquisitiondate_livetime
 	@AcquisitionDate datetime2,
 	@Livetime int
 as 
-	select count(ID) from SpectrumInfo 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)
+	select count(ID) 
+	from SpectrumInfo 
+	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)	
 go
 
 create proc proc_spectrum_info_delete_where_id
@@ -255,6 +310,7 @@ create proc proc_spectrum_result_insert
 	@CreateDate datetime2,
 	@UpdateDate datetime2,
 	@NuclideName nvarchar(24),
+	@Confidence float,
 	@Activity float,
 	@ActivityUncertainty float,
 	@MDA float,
@@ -262,10 +318,10 @@ create proc proc_spectrum_result_insert
 	@Approved bit,
 	@Comment nvarchar(256)
 as 	
-	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, Activity, 
-		ActivityUncertainty, MDA, Evaluated, Approved, Comment)
-	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, @Activity, 
-		@ActivityUncertainty, @MDA, @Evaluated, @Approved, @Comment)
+	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, 
+		Confidence, Activity, ActivityUncertainty, MDA, Evaluated, Approved, Comment)
+	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, 
+		@Confidence, @Activity, @ActivityUncertainty, @MDA, @Evaluated, @Approved, @Comment)
 go
 
 create proc proc_spectrum_file_insert

@@ -61,6 +61,7 @@
     <Compile Include="SpectrumReport.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SingletonApp.cs" />
+    <Compile Include="SpectrumValidationRules.cs" />
     <EmbeddedResource Include="FormLorakonSniff.resx">
       <DependentUpon>FormLorakonSniff.cs</DependentUpon>
     </EmbeddedResource>

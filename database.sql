@@ -66,6 +66,8 @@ create table SpectrumInfo
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
 	ExternalID nvarchar(128) default null,
+	Sigma double default 0,
+	Approved bit default 0,
 	Comment nvarchar(256) default null
 ) 
 go
@@ -99,6 +101,7 @@ create table SpectrumResult
 	Activity float default null,
 	ActivityUncertainty float default null,
 	MDA float default null,
+	AutoApproved bit default 0,
 	Evaluated bit default 0,
 	Approved bit default 0,
 	Comment nvarchar(256) default null,
@@ -137,6 +140,17 @@ create table SpectrumChecksum
 		foreign key (SpectrumInfoID) 
 		references SpectrumInfo(ID) 
 		on delete cascade
+)
+go
+
+create table SpectrumValidationRules
+(		
+	ID uniqueidentifier not null primary key,
+	NuclideName nvarchar(24) not null,
+	ActivityMin float default null,
+	ActivityMax float default null,
+	ConfidenceMin float default null,
+	CanBeAutoApproved bit default 0
 )
 go
 
@@ -195,19 +209,21 @@ create proc proc_spectrum_info_insert
 	@SampleWeightUnit nvarchar(24),
 	@SampleGeometry nvarchar(128),
 	@ExternalID nvarchar(128),
+	@Sigma float,
+	@Approved bit,
 	@Comment nvarchar(256)
 as	
 	insert into SpectrumInfo(ID, AccountID, CreateDate, UpdateDate, AcquisitionDate, 
 		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
-		SampleGeometry, ExternalID, Comment)
+		SampleGeometry, ExternalID, Sigma, Approved, Comment)
 	values(@ID, @AccountID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
 		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
 		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
-		@SampleGeometry, @ExternalID, @Comment)
+		@SampleGeometry, @ExternalID, @Sigma, @Approved, @Comment)
 go
 
 create proc proc_spectrum_info_select
@@ -314,14 +330,15 @@ create proc proc_spectrum_result_insert
 	@Activity float,
 	@ActivityUncertainty float,
 	@MDA float,
+	@AutoApproved bit,
 	@Evaluated bit,
 	@Approved bit,
 	@Comment nvarchar(256)
 as 	
 	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, 
-		Confidence, Activity, ActivityUncertainty, MDA, Evaluated, Approved, Comment)
+		Confidence, Activity, ActivityUncertainty, MDA, AutoApproved, Evaluated, Approved, Comment)
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, 
-		@Confidence, @Activity, @ActivityUncertainty, @MDA, @Evaluated, @Approved, @Comment)
+		@Confidence, @Activity, @ActivityUncertainty, @MDA, @AutoApproved, @Evaluated, @Approved, @Comment)
 go
 
 create proc proc_spectrum_file_insert
@@ -348,4 +365,10 @@ create proc proc_spectrum_checksum_count
 	@Sha256Sum char(64)	
 as 	
 	select count(*) from SpectrumChecksum where Sha256Sum = @Sha256Sum
+go
+
+create proc proc_spectrum_validation_rules_select
+as 
+	select * 
+	from SpectrumValidationRules	
 go

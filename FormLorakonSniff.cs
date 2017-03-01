@@ -42,7 +42,8 @@ namespace LorakonSniff
         private Hashes hashes = null;
         List<string> newFiles = new List<string>();
         private string ReportExecutable;
-        private string ReportTemplate;        
+        private string ReportTemplate;
+        private List<ValidationRule> ValidationRules = null;
 
         public FormLorakonSniff(NotifyIcon trayIcon)
         {
@@ -230,6 +231,8 @@ namespace LorakonSniff
                 connection = new SqlConnection(settings.ConnectionString);
                 connection.Open();
 
+                ValidationRules = SpectrumValidationRules.LoadValidationRules(connection);                
+
                 foreach (string fname in newFiles)
                 {
                     if (!WaitForReadAccess(fname, 10000))
@@ -247,12 +250,14 @@ namespace LorakonSniff
                         log.AddMessage("Genererer rapport: " + fname + " [" + checksum + "]");
 
                         string reportString = GenerateReport(fname);
-                        SpectrumReport report = ParseReport(reportString);
+                        SpectrumReport report = ParseReport(reportString);                        
 
                         string errorString;
                         if (ValidateReport(connection, report, out errorString))
                         {
                             log.AddMessage("Importerer: " + fname + " [" + checksum + "]");
+
+                            ApproveReport(report, ValidationRules);
 
                             Guid specId = StoreReport(connection, report, reportString, spectrum, 
                                 Path.GetExtension(fname).ToUpper());
@@ -365,6 +370,40 @@ namespace LorakonSniff
             }
 
             return true;
+        }
+
+        private void ApproveReport(SpectrumReport report, List<ValidationRule> rules)
+        {
+            foreach (SpectrumResult result in report.Results)
+            {
+                result.AutoApproved = false;
+
+                ValidationRule rule = rules.Find(r => r.NuclideName.ToLower() == result.NuclideName.ToLower());
+
+                if (rule != null)
+                {
+                    if (!rule.CanBeAutoApproved)
+                    {
+                        result.AutoApproved = true;
+                    }
+                    else
+                    {
+                        if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
+                        {
+                            result.AutoApproved = true;
+                        }
+                    }
+                }                
+            }
+
+            report.Approved = true;
+
+            SpectrumResult res = report.Results.Find(a => a.AutoApproved != true);
+            if (res != null)
+                report.Approved = false;
+
+            if(report.Results.Count > rules.Count)
+                report.Approved = false;
         }
 
         private string GenerateReport(string specfile)
@@ -609,7 +648,8 @@ namespace LorakonSniff
             return o;
         }
 
-        private Guid StoreReport(SqlConnection connection, 
+        private Guid StoreReport(
+            SqlConnection connection, 
             SpectrumReport report, 
             string reportString, 
             byte[] spectrum, 
@@ -653,6 +693,8 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@SampleWeightUnit", MakeQueryParam(report.SampleUnit));
                 command.Parameters.AddWithValue("@SampleGeometry", MakeQueryParam(report.SampleGeometry));
                 command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));
+                command.Parameters.AddWithValue("@Sigma", MakeQueryParam(report.Sigma));
+                command.Parameters.AddWithValue("@Approved", MakeQueryParam(report.Approved));
                 command.Parameters.AddWithValue("@Comment", MakeQueryParam(report.Comment));
 
                 command.ExecuteNonQuery();
@@ -687,6 +729,7 @@ namespace LorakonSniff
                     command.Parameters.AddWithValue("@Activity", MakeQueryParam(result.Activity));
                     command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
                     command.Parameters.AddWithValue("@MDA", MakeQueryParam(result.MDA));
+                    command.Parameters.AddWithValue("@AutoApproved", result.AutoApproved);
                     command.Parameters.AddWithValue("@Evaluated", 0);
                     command.Parameters.AddWithValue("@Approved", 0);
                     command.Parameters.AddWithValue("@Comment", "");

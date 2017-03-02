@@ -380,7 +380,7 @@ namespace LorakonSniff
             {
                 result.AutoApproved = false;
 
-                ValidationRule rule = rules.Find(r => r.NuclideName.ToLower() == result.NuclideName.ToLower());
+                ValidationRule rule = rules.Find(r => r.NuclideName.Trim().ToLower() == result.NuclideName.Trim().ToLower());
 
                 if (rule != null)
                 {                    

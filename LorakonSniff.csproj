@@ -85,7 +85,6 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <Content Include="database-test.sql" />
     <Content Include="database.sql" />
     <Content Include="report_template.tpl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

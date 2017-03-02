@@ -39,6 +39,8 @@ IF (OBJECT_ID('dbo.proc_spectrum_file_insert') IS NOT NULL) DROP PROCEDURE dbo.p
 IF (OBJECT_ID('dbo.proc_spectrum_checksum_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_insert;
 IF (OBJECT_ID('dbo.proc_spectrum_checksum_count') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_count;
 IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_select;
+IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_update') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_update;
 go
 
 create table SpectrumInfo
@@ -371,4 +373,57 @@ create proc proc_spectrum_validation_rules_select
 as 
 	select * 
 	from SpectrumValidationRules	
+go
+
+create proc proc_spectrum_validation_rules_insert
+	@ID uniqueidentifier,
+	@NuclideName nvarchar(24),
+	@ActivityMin float,
+	@ActivityMax float,
+	@ConfidenceMin float,
+	@CanBeAutoApproved bit
+as 
+	insert into SpectrumValidationRules (
+		ID, 
+		NuclideName, 
+		ActivityMin, 
+		ActivityMax, 
+		ConfidenceMin, 
+		CanBeAutoApproved
+	) values (
+		@ID, 
+		@NuclideName, 
+		@ActivityMin, 
+		@ActivityMax, 
+		@ConfidenceMin, 
+		@CanBeAutoApproved
+	);
+go
+
+create proc proc_spectrum_validation_rules_update
+	@ID uniqueidentifier,
+	@NuclideName nvarchar(24),
+	@ActivityMin float,
+	@ActivityMax float,
+	@ConfidenceMin float,
+	@CanBeAutoApproved bit
+as 
+	update SpectrumValidationRules set 
+		NuclideName = @NuclideName, 
+		ActivityMin = @ActivityMin, 
+		ActivityMax = @ActivityMax, 
+		ConfidenceMin = @ConfidenceMin, 
+		CanBeAutoApproved = @CanBeAutoApproved
+	where ID = @ID
+go
+
+/* Test data */
+
+declare @ruleId uniqueidentifier
+
+set @ruleId = NEWID()
+exec proc_spectrum_validation_rules_insert @ruleId, 'CS-137', 36, 1000, 0.8, 1
+
+set @ruleId = NEWID()
+exec proc_spectrum_validation_rules_insert @ruleId, 'K-40', 10, 10000, 0.8, 0
 go

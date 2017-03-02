@@ -374,6 +374,8 @@ namespace LorakonSniff
 
         private void ApproveReport(SpectrumReport report, List<ValidationRule> rules)
         {
+            report.Approved = true;
+
             foreach (SpectrumResult result in report.Results)
             {
                 result.AutoApproved = false;
@@ -381,29 +383,21 @@ namespace LorakonSniff
                 ValidationRule rule = rules.Find(r => r.NuclideName.ToLower() == result.NuclideName.ToLower());
 
                 if (rule != null)
-                {
-                    if (!rule.CanBeAutoApproved)
+                {                    
+                    if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
                     {
                         result.AutoApproved = true;
                     }
                     else
                     {
-                        if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
-                        {
-                            result.AutoApproved = true;
-                        }
+                        report.Approved = false;
                     }
+                }
+                else
+                {
+                    report.Approved = false;
                 }                
-            }
-
-            report.Approved = true;
-
-            SpectrumResult res = report.Results.Find(a => a.AutoApproved != true);
-            if (res != null)
-                report.Approved = false;
-
-            if(report.Results.Count > rules.Count)
-                report.Approved = false;
+            }            
         }
 
         private string GenerateReport(string specfile)
@@ -692,8 +686,7 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@SampleWeight", MakeQueryParam(report.SampleSize));
                 command.Parameters.AddWithValue("@SampleWeightUnit", MakeQueryParam(report.SampleUnit));
                 command.Parameters.AddWithValue("@SampleGeometry", MakeQueryParam(report.SampleGeometry));
-                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));
-                command.Parameters.AddWithValue("@Sigma", MakeQueryParam(report.Sigma));
+                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));                
                 command.Parameters.AddWithValue("@Approved", MakeQueryParam(report.Approved));
                 command.Parameters.AddWithValue("@Comment", MakeQueryParam(report.Comment));
 

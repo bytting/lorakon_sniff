@@ -13,18 +13,28 @@ namespace LorakonSniff
         {
             SqlCommand command = new SqlCommand("proc_spectrum_validation_rules_select", connection);
             command.CommandType = CommandType.StoredProcedure;
-            SqlDataReader reader = command.ExecuteReader();
+            SqlDataReader reader = null;
             Rules.Clear();
-            while (reader.Read())
+
+            try
             {
-                ValidationRule rule = new ValidationRule();
-                rule.NuclideName = Convert.ToString(reader["NuclName"]);
-                rule.ActivityMin = Convert.ToDouble(reader["ActivityMin"]);
-                rule.ActivityMax = Convert.ToDouble(reader["ActivityMax"]);
-                rule.ConfidenceMin = Convert.ToDouble(reader["ConfidenceMin"]);
-                rule.CanBeAutoApproved = Convert.ToBoolean(reader["CanBeAutoApproved"]);
-                Rules.Add(rule);
+                reader = command.ExecuteReader();                
+                while (reader.Read())
+                {
+                    ValidationRule rule = new ValidationRule();
+                    rule.NuclideName = Convert.ToString(reader["NuclideName"]);
+                    rule.ActivityMin = Convert.ToDouble(reader["ActivityMin"]);
+                    rule.ActivityMax = Convert.ToDouble(reader["ActivityMax"]);
+                    rule.ConfidenceMin = Convert.ToDouble(reader["ConfidenceMin"]);
+                    rule.CanBeAutoApproved = Convert.ToBoolean(reader["CanBeAutoApproved"]);
+                    Rules.Add(rule);
+                }
             }
+            finally
+            {
+                if (reader != null && !reader.IsClosed)
+                    reader.Close();
+            }            
 
             return Rules;
         }        

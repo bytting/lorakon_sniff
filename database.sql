@@ -17,26 +17,28 @@ IF OBJECT_ID('dbo.SpectrumResult', 'U') IS NOT NULL DROP TABLE dbo.SpectrumResul
 IF OBJECT_ID('dbo.SpectrumFile', 'U') IS NOT NULL DROP TABLE dbo.SpectrumFile;
 IF OBJECT_ID('dbo.SpectrumChecksum', 'U') IS NOT NULL DROP TABLE dbo.SpectrumChecksum;
 IF OBJECT_ID('dbo.SpectrumInfo', 'U') IS NOT NULL DROP TABLE dbo.SpectrumInfo;
+IF OBJECT_ID('dbo.SpectrumValidationRules', 'U') IS NOT NULL DROP TABLE dbo.SpectrumValidationRules;
 
 IF EXISTS(SELECT * FROM sys.views WHERE name = 'SpectrumInfoLatest' AND schema_id = SCHEMA_ID('dbo')) DROP VIEW dbo.SpectrumInfoLatest;
 
-if object_id('func_make_extended_acquisitiondate') is not NULL DROP FUNCTION dbo.func_make_extended_acquisitiondate;
+if object_id('dbo.func_make_extended_acquisitiondate') is not NULL DROP FUNCTION dbo.func_make_extended_acquisitiondate;
 
-IF (OBJECT_ID('proc_spectrum_info_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_insert;
-IF (OBJECT_ID('proc_spectrum_info_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select;
-IF (OBJECT_ID('proc_spectrum_info_select_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_account;
-IF (OBJECT_ID('proc_spectrum_info_select_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_acquisitiondate_livetime;
-IF (OBJECT_ID('proc_spectrum_info_select_latest') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest;
-IF (OBJECT_ID('proc_spectrum_info_select_latest_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account;
-IF (OBJECT_ID('proc_spectrum_info_select_latest_where_account_year') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account_year;
-IF (OBJECT_ID('proc_spectrum_info_select_latest_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_acquisitiondate_livetime;
-IF (OBJECT_ID('proc_spectrum_info_count_id_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_count_id_where_acquisitiondate_livetime;
-IF (OBJECT_ID('proc_spectrum_info_delete_where_id') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_delete_where_id;
-IF (OBJECT_ID('proc_spectrum_background_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_background_insert;
-IF (OBJECT_ID('proc_spectrum_result_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_result_insert;
-IF (OBJECT_ID('proc_spectrum_file_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_file_insert;
-IF (OBJECT_ID('proc_spectrum_checksum_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_insert;
-IF (OBJECT_ID('proc_spectrum_checksum_count') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_count;
+IF (OBJECT_ID('dbo.proc_spectrum_info_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_account;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_where_acquisitiondate_livetime;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_latest') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_latest_where_account') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_latest_where_account_year') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_account_year;
+IF (OBJECT_ID('dbo.proc_spectrum_info_select_latest_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_select_latest_where_acquisitiondate_livetime;
+IF (OBJECT_ID('dbo.proc_spectrum_info_count_id_where_acquisitiondate_livetime') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_count_id_where_acquisitiondate_livetime;
+IF (OBJECT_ID('dbo.proc_spectrum_info_delete_where_id') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_info_delete_where_id;
+IF (OBJECT_ID('dbo.proc_spectrum_background_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_background_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_result_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_result_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_file_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_file_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_checksum_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_checksum_count') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_checksum_count;
+IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_select;
 go
 
 create table SpectrumInfo
@@ -65,8 +67,7 @@ create table SpectrumInfo
 	SampleWeight float default null,
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
-	ExternalID nvarchar(128) default null,
-	Sigma double default 0,
+	ExternalID nvarchar(128) default null,	
 	Approved bit default 0,
 	Comment nvarchar(256) default null
 ) 
@@ -208,8 +209,7 @@ create proc proc_spectrum_info_insert
 	@SampleWeight float,
 	@SampleWeightUnit nvarchar(24),
 	@SampleGeometry nvarchar(128),
-	@ExternalID nvarchar(128),
-	@Sigma float,
+	@ExternalID nvarchar(128),	
 	@Approved bit,
 	@Comment nvarchar(256)
 as	
@@ -217,13 +217,13 @@ as
 		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
-		SampleGeometry, ExternalID, Sigma, Approved, Comment)
+		SampleGeometry, ExternalID, Approved, Comment)
 	values(@ID, @AccountID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
 		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
 		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
-		@SampleGeometry, @ExternalID, @Sigma, @Approved, @Comment)
+		@SampleGeometry, @ExternalID, @Approved, @Comment)
 go
 
 create proc proc_spectrum_info_select

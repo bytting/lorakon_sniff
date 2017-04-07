@@ -58,6 +58,7 @@
     <Compile Include="LorakonEnvironment.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SpectrumGeometryRules.cs" />
     <Compile Include="SpectrumReport.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SingletonApp.cs" />

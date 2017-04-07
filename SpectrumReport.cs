@@ -51,13 +51,15 @@ namespace LorakonSniff
         public string BackgroundFile { get; set; }
         public string NuclideLibrary { get; set; }
         public double Sigma { get; set; }
+        public bool AutoApproved { get; set; }
         public bool Approved { get; set; }
+        public bool Rejected { get; set; }
 
         public List<SpectrumResult> Results = new List<SpectrumResult>();
         public List<SpectrumBackground> Backgrounds = new List<SpectrumBackground>();
 
         public SpectrumReport()
-        {            
+        {
         }
     }
 
@@ -81,10 +83,13 @@ namespace LorakonSniff
         public double Activity { get; set; }
         public double ActivityUncertainty { get; set; }
         public double MDA { get; set; }
+        public bool Evaluated { get; set; }
         public bool AutoApproved { get; set; }
+        public bool Approved { get; set; }
+        public bool Rejected { get; set; }
 
         public SpectrumResult()
-        {
+        {            
         }
     }
 }

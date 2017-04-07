@@ -18,6 +18,7 @@ IF OBJECT_ID('dbo.SpectrumFile', 'U') IS NOT NULL DROP TABLE dbo.SpectrumFile;
 IF OBJECT_ID('dbo.SpectrumChecksum', 'U') IS NOT NULL DROP TABLE dbo.SpectrumChecksum;
 IF OBJECT_ID('dbo.SpectrumInfo', 'U') IS NOT NULL DROP TABLE dbo.SpectrumInfo;
 IF OBJECT_ID('dbo.SpectrumValidationRules', 'U') IS NOT NULL DROP TABLE dbo.SpectrumValidationRules;
+IF OBJECT_ID('dbo.SpectrumGeometryRules', 'U') IS NOT NULL DROP TABLE dbo.SpectrumGeometryRules;
 
 IF EXISTS(SELECT * FROM sys.views WHERE name = 'SpectrumInfoLatest' AND schema_id = SCHEMA_ID('dbo')) DROP VIEW dbo.SpectrumInfoLatest;
 
@@ -41,6 +42,9 @@ IF (OBJECT_ID('dbo.proc_spectrum_checksum_count') IS NOT NULL) DROP PROCEDURE db
 IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_select;
 IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_insert;
 IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_update') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_validation_rules_update;
+IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_select;
+IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_update') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_update;
 go
 
 create table SpectrumInfo
@@ -69,8 +73,10 @@ create table SpectrumInfo
 	SampleWeight float default null,
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
-	ExternalID nvarchar(128) default null,	
+	ExternalID nvarchar(128) default null,
+	AutoApproved bit default 0,
 	Approved bit default 0,
+	Rejected bit default 0,
 	Comment nvarchar(256) default null
 ) 
 go
@@ -103,10 +109,11 @@ create table SpectrumResult
 	Confidence float default null,
 	Activity float default null,
 	ActivityUncertainty float default null,
-	MDA float default null,
-	AutoApproved bit default 0,
+	MDA float default null,	
 	Evaluated bit default 0,
+	AutoApproved bit default 0,
 	Approved bit default 0,
+	Rejected bit default 0,
 	Comment nvarchar(256) default null,
 	constraint FK_SpectrumResult_SpectrumInfo 
 		foreign key (SpectrumInfoID) 
@@ -154,6 +161,16 @@ create table SpectrumValidationRules
 	ActivityMax float default null,
 	ConfidenceMin float default null,
 	CanBeAutoApproved bit default 0
+)
+go
+
+create table SpectrumGeometryRules
+(		
+	ID uniqueidentifier not null primary key,
+	Geometry nvarchar(24) not null,
+	Unit nvarchar(24) default null,
+	Minimum float default null,
+	Maximum float default null	
 )
 go
 
@@ -212,26 +229,29 @@ create proc proc_spectrum_info_insert
 	@SampleWeightUnit nvarchar(24),
 	@SampleGeometry nvarchar(128),
 	@ExternalID nvarchar(128),	
+	@AutoApproved bit,
 	@Approved bit,
+	@Rejected bit,
 	@Comment nvarchar(256)
 as	
 	insert into SpectrumInfo(ID, AccountID, CreateDate, UpdateDate, AcquisitionDate, 
 		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
-		SampleGeometry, ExternalID, Approved, Comment)
+		SampleGeometry, ExternalID, AutoApproved, Approved, Rejected, Comment)
 	values(@ID, @AccountID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
 		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
 		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
-		@SampleGeometry, @ExternalID, @Approved, @Comment)
+		@SampleGeometry, @ExternalID, @AutoApproved, @Approved, @Rejected, @Comment)
 go
 
 create proc proc_spectrum_info_select
 as 
 	select * 
-	from SpectrumInfo 
+	from SpectrumInfo
+	where Rejected = 0 
 	order by CreateDate
 go
 
@@ -240,7 +260,7 @@ create proc proc_spectrum_info_select_where_account
 as 
 	select * 
 	from SpectrumInfo 
-	where AccountID = @AccountID 
+	where Rejected = 0 and AccountID = @AccountID 
 	order by CreateDate
 go
 
@@ -250,7 +270,7 @@ create proc proc_spectrum_info_select_where_acquisitiondate_livetime
 as 	
 	select * 
 	from SpectrumInfo 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
+	where Rejected = 0 and AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
 	order by CreateDate
 go
 
@@ -258,6 +278,7 @@ create proc proc_spectrum_info_select_latest
 as 
 	select * 
 	from SpectrumInfoLatest
+	where Rejected = 0
 go
 
 create proc proc_spectrum_info_select_latest_where_account
@@ -265,7 +286,7 @@ create proc proc_spectrum_info_select_latest_where_account
 as 
 	select * 
 	from SpectrumInfoLatest 
-	where AccountID = @AccountID 
+	where Rejected = 0 and AccountID = @AccountID 
 	order by CreateDate
 go
 
@@ -275,7 +296,7 @@ create proc proc_spectrum_info_select_latest_where_account_year
 as 
 	select * 
 	from SpectrumInfoLatest 
-	where AccountID = @AccountID and datepart(year, CreateDate) = @year 
+	where Rejected = 0 and AccountID = @AccountID and datepart(year, CreateDate) = @year 
 	order by CreateDate
 go
 
@@ -285,7 +306,7 @@ create proc proc_spectrum_info_select_latest_where_acquisitiondate_livetime
 as 
 	select top(1) * 
 	from SpectrumInfoLatest 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
+	where Rejected = 0 and AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime) 
 	order by CreateDate
 go
 
@@ -295,7 +316,7 @@ create proc proc_spectrum_info_count_id_where_acquisitiondate_livetime
 as 
 	select count(ID) 
 	from SpectrumInfo 
-	where AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)	
+	where Rejected = 0 and AcquisitionDate = dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime)	
 go
 
 create proc proc_spectrum_info_delete_where_id
@@ -332,15 +353,16 @@ create proc proc_spectrum_result_insert
 	@Activity float,
 	@ActivityUncertainty float,
 	@MDA float,
-	@AutoApproved bit,
 	@Evaluated bit,
+	@AutoApproved bit,	
 	@Approved bit,
+	@Rejected bit,
 	@Comment nvarchar(256)
 as 	
 	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, 
-		Confidence, Activity, ActivityUncertainty, MDA, AutoApproved, Evaluated, Approved, Comment)
+		Confidence, Activity, ActivityUncertainty, MDA, Evaluated, AutoApproved, Approved, Rejected, Comment)
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, 
-		@Confidence, @Activity, @ActivityUncertainty, @MDA, @AutoApproved, @Evaluated, @Approved, @Comment)
+		@Confidence, @Activity, @ActivityUncertainty, @MDA, @Evaluated, @AutoApproved, @Approved, @Rejected, @Comment)
 go
 
 create proc proc_spectrum_file_insert
@@ -397,7 +419,7 @@ as
 		@ActivityMax, 
 		@ConfidenceMin, 
 		@CanBeAutoApproved
-	);
+	)
 go
 
 create proc proc_spectrum_validation_rules_update
@@ -417,13 +439,45 @@ as
 	where ID = @ID
 go
 
-/* Test data */
+create proc proc_spectrum_geometry_rules_select
+as 
+	select * 
+	from SpectrumGeometryRules
+go
 
-declare @ruleId uniqueidentifier
+create proc proc_spectrum_geometry_rules_insert
+	@ID uniqueidentifier,
+	@Geometry nvarchar(24),
+	@Unit nvarchar(24),
+	@Minimum float,
+	@Maximum float	
+as 
+	insert into SpectrumGeometryRules (
+		ID, 
+		Geometry, 
+		Unit, 
+		Minimum, 
+		Maximum		
+	) values (
+		@ID, 
+		@Geometry, 
+		@Unit, 
+		@Minimum, 
+		@Maximum		
+	)
+go
 
-set @ruleId = NEWID()
-exec proc_spectrum_validation_rules_insert @ruleId, 'CS-137', 36, 1000, 0.8, 1
-
-set @ruleId = NEWID()
-exec proc_spectrum_validation_rules_insert @ruleId, 'K-40', 10, 10000, 0.8, 0
+create proc proc_spectrum_geometry_rules_update
+	@ID uniqueidentifier,
+	@Geometry nvarchar(24),
+	@Unit nvarchar(24),
+	@Minimum float,
+	@Maximum float	
+as 
+	update SpectrumGeometryRules set 
+		Geometry = @Geometry, 
+		Unit = @Unit, 
+		Minimum = @Minimum, 
+		Maximum = @Maximum		
+	where ID = @ID
 go

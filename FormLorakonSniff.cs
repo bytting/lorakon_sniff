@@ -17,6 +17,7 @@
 
 using System;
 using System.Text;
+using System.Linq;
 using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -43,7 +44,8 @@ namespace LorakonSniff
         List<string> newFiles = new List<string>();
         private string ReportExecutable;
         private string ReportTemplate;
-        private List<ValidationRule> ValidationRules = null;
+        private List<ValidationRule> NuclideRules = null;
+        private List<GeometryRule> GeometryRules = null;
 
         public FormLorakonSniff(NotifyIcon trayIcon)
         {
@@ -203,12 +205,33 @@ namespace LorakonSniff
             return true;
         }
 
+        private bool TryMoveFile(string source, string destination)
+        {
+            try
+            {
+                string destDir = Path.GetDirectoryName(destination);
+                if (!Directory.Exists(destDir))
+                    Directory.CreateDirectory(destDir);
+
+                if (File.Exists(source))
+                    File.Move(source, destination);
+            }
+            catch (Exception ex)
+            {
+                log.AddMessage("FEIL: " + ex.Message);
+                return false;
+            }
+
+            return true;
+        }
+
         private void Timer_Tick(object sender, EventArgs e)
         {
             if (newFiles.Count > 0)
                 return;
 
             SqlConnection connection = null;
+            string failedFilename = "";
 
             try
             {
@@ -231,10 +254,14 @@ namespace LorakonSniff
                 connection = new SqlConnection(settings.ConnectionString);
                 connection.Open();
 
-                ValidationRules = SpectrumValidationRules.LoadValidationRules(connection);                
+                NuclideRules = SpectrumValidationRules.LoadValidationRules(connection);
+                GeometryRules = SpectrumGeometryRules.LoadGeometryRules(connection);
+                string[] NuclideList = NuclideRules.Select(x => x.NuclideName.ToLower()).ToArray();
 
                 foreach (string fname in newFiles)
                 {
+                    failedFilename = fname;
+
                     if (!WaitForReadAccess(fname, 10000))
                     {
                         log.AddMessage("FEIL: Får ikke tilgang til filen: " + fname);
@@ -250,38 +277,47 @@ namespace LorakonSniff
                         log.AddMessage("Genererer rapport: " + fname + " [" + checksum + "]");
 
                         string reportString = GenerateReport(fname);
-                        SpectrumReport report = ParseReport(reportString);                        
+                        if(reportString == null)
+                        {
+                            log.AddMessage("FEIL: report.exe feilet");
+                            TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(fname));                            
+                            continue;
+                        }
+
+                        SpectrumReport report = ParseReport(reportString, NuclideList);
 
                         string errorString;
                         if (ValidateReport(connection, report, out errorString))
                         {
                             log.AddMessage("Importerer: " + fname + " [" + checksum + "]");
 
-                            ApproveReport(report, ValidationRules);
+                            ApproveReportParams(report);
+                            ApproveReportNuclides(report, NuclideRules);
+                            ApproveReportGeometry(report, GeometryRules);
 
-                            Guid specId = StoreReport(connection, report, reportString, spectrum, 
-                                Path.GetExtension(fname).ToUpper());
+                            Guid specId = StoreReport(connection, report, reportString, spectrum, Path.GetExtension(fname).ToUpper());
                             if (specId != Guid.Empty)
                             {
                                 hashes.StoreChecksum(connection, checksum, specId);
-                                if (cbSettingsDeleteImportedSpectrums.Checked)                                
-                                    TryDeleteFile(fname);                                
-                                else                                
-                                    File.Move(fname, settings.ImportedDirectory + 
-                                        Path.DirectorySeparatorChar + timestampString + 
+                                if (cbSettingsDeleteImportedSpectrums.Checked)
+                                    TryDeleteFile(fname);
+                                else
+                                    TryMoveFile(fname, settings.ImportedDirectory +
+                                        Path.DirectorySeparatorChar + timestampString +
                                         Path.GetFileName(fname));
                             }
                             else
                             {
-                                File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar + 
-                                    timestampString + Path.GetFileName(fname));
+                                TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(fname));                                
                             }
                         }
                         else
                         {
                             log.AddMessage("Ugyldig rapport: " + errorString + ": " + fname + " [" + checksum + "]");
-                            File.Move(fname, settings.FailedDirectory + Path.DirectorySeparatorChar + 
-                                timestampString + Path.GetFileName(fname));
+                            TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(fname));                            
                         }                                                
                     }
                     else
@@ -294,8 +330,8 @@ namespace LorakonSniff
                         else
                         {
                             log.AddMessage("Flytter allerede importert: " + fname + " [" + checksum + "]");
-                            File.Move(fname, settings.OldDirectory + Path.DirectorySeparatorChar + 
-                                timestampString + Path.GetFileName(fname));
+                            TryMoveFile(fname, settings.OldDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(fname));                            
                         }
                     }
                 }
@@ -305,6 +341,9 @@ namespace LorakonSniff
             catch (Exception ex)
             {
                 log.AddMessage("FEIL: " + ex.Message);
+                string timestampString = DateTime.Now.Ticks.ToString() + "-";
+                TryMoveFile(failedFilename, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                timestampString + Path.GetFileName(failedFilename));                
             }
             finally
             {
@@ -320,7 +359,7 @@ namespace LorakonSniff
             errorString = String.Empty;
 
             if (String.IsNullOrEmpty(report.SampleType))
-            {
+            {                
                 errorString = "Mangler prøvetype";
                 return false;
             }
@@ -367,37 +406,72 @@ namespace LorakonSniff
             {
                 errorString = "Konto id finnes ikke";
                 return false;
-            }
+            }            
 
             return true;
         }
 
-        private void ApproveReport(SpectrumReport report, List<ValidationRule> rules)
+        private void ApproveReportParams(SpectrumReport report)
         {
-            report.Approved = true;
+            if (String.IsNullOrEmpty(report.SampleGeometry))
+                report.AutoApproved = false;
 
+            if (String.IsNullOrEmpty(report.SampleUnit))
+                report.AutoApproved = false;
+
+            if(report.SampleSize <= 0.0)
+                report.AutoApproved = false;
+
+            if (report.Sigma <= 0.0)
+                report.AutoApproved = false;
+        }
+
+        private void ApproveReportNuclides(SpectrumReport report, List<ValidationRule> rules)
+        {
             foreach (SpectrumResult result in report.Results)
-            {
+            {                
                 result.AutoApproved = false;
+
+                if (result.Activity == 0.0 && result.ActivityUncertainty == 0.0)
+                {                
+                    continue;
+                }
 
                 ValidationRule rule = rules.Find(r => r.NuclideName.Trim().ToLower() == result.NuclideName.Trim().ToLower());
 
                 if (rule != null)
-                {                    
-                    if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
+                {
+                    if (rule.CanBeAutoApproved)
                     {
-                        result.AutoApproved = true;
-                    }
-                    else
-                    {
-                        report.Approved = false;
+                        if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
+                        {
+                            result.AutoApproved = true;
+                        }
+                        else
+                        {
+                            report.AutoApproved = false;
+                        }
                     }
                 }
                 else
                 {
-                    report.Approved = false;
+                    report.AutoApproved = false;
                 }                
             }            
+        }
+
+        private void ApproveReportGeometry(SpectrumReport report, List<GeometryRule> geomRules)
+        {
+            GeometryRule rule = geomRules.Find(
+                r => r.GeometryName.ToLower() == report.SampleGeometry.ToLower() &&
+                r.Unit.ToLower() == report.SampleUnit.ToLower());
+            if (rule != null)
+            {
+                if (report.SampleSize > rule.Maximum || report.SampleSize < rule.Minimum)
+                {
+                    report.AutoApproved = false;
+                }
+            }
         }
 
         private string GenerateReport(string specfile)
@@ -419,8 +493,8 @@ namespace LorakonSniff
 
             p.WaitForExit();
 
-            if(p.ExitCode != 0)            
-                log.AddMessage("FEIL: report.exe: " + cerr);            
+            if (p.ExitCode != 0)            
+                return null;            
 
             return cout;            
         }
@@ -434,7 +508,11 @@ namespace LorakonSniff
                 builder.Append(' ');
             }
 
-            return builder.ToString();
+            string str = builder.ToString();
+            if (str == null || String.IsNullOrEmpty(str.Trim()))
+                return "";
+
+            return str;
         }
 
         private string ParseReport_ExtractParameter(string tag, string line)
@@ -443,16 +521,18 @@ namespace LorakonSniff
             {
                 string[] mainDelim = new string[] { ":::" };
                 string[] items = line.Split(mainDelim, StringSplitOptions.RemoveEmptyEntries);
-                if (items.Length > 1)                    
+                if (items.Length > 1)
                     return items[1].Replace('?', ' ').Trim();
+                else return "";
             }
 
-            return String.Empty;
+            return null;
         }
 
-        private SpectrumReport ParseReport(string rep)
+        private SpectrumReport ParseReport(string rep, string[] nuclideList)
         {
-            SpectrumReport report = new SpectrumReport();            
+            SpectrumReport report = new SpectrumReport();
+            report.AutoApproved = true;
             
             StringReader reader = new StringReader(rep);
             string line, param;
@@ -460,40 +540,40 @@ namespace LorakonSniff
             {
                 line = line.Trim();
 
-                if ((param = ParseReport_ExtractParameter("Account Identification", line)) != String.Empty)
+                if ((param = ParseReport_ExtractParameter("Account Identification", line)) != null)
                     report.AccountIdentification = param;
 
-                if ((param = ParseReport_ExtractParameter("Laboratory", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Laboratory", line)) != null)
                     report.Laboratory = param;
 
-                else if ((param = ParseReport_ExtractParameter("Operator", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Operator", line)) != null)
                     report.Operator = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Title", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Title", line)) != null)
                     report.SampleTitle = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Identification", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Identification", line)) != null)
                     report.SampleIdentification = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Type", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Type", line)) != null)
                     report.SampleType = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Component", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Component", line)) != null)
                     report.SampleComponent = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Geometry", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Geometry", line)) != null)
                     report.SampleGeometry = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Location Type", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Location Type", line)) != null)
                     report.SampleLocationType = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Location", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Location", line)) != null)
                     report.SampleLocation = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Community/County", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Community/County", line)) != null)
                     report.SampleCommunityCounty = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Coordinates", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Coordinates", line)) != null)
                 {
                     char[] wspace = new char[] { ' ', '\t' };
                     string[] coords = param.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
@@ -505,10 +585,10 @@ namespace LorakonSniff
                         report.SampleAltitude = Convert.ToDouble(coords[2], CultureInfo.InvariantCulture);
                 }
 
-                else if ((param = ParseReport_ExtractParameter("Sample Comment", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Comment", line)) != null)
                     report.Comment = param;
 
-                else if ((param = ParseReport_ExtractParameter("Sample Size/Error", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Size/Error", line)) != null)
                 {
                     char[] wspace = new char[] { ' ', '\t' };
                     string[] items = param.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
@@ -517,44 +597,44 @@ namespace LorakonSniff
                     if (items.Length > 1)
                         report.SampleError = Convert.ToDouble(items[1], CultureInfo.InvariantCulture);
                     if (items.Length > 2)
-                        report.SampleUnit = JoinStringArray(items, 2);
+                        report.SampleUnit = JoinStringArray(items, 2).Trim();
                 }
 
-                else if ((param = ParseReport_ExtractParameter("Sample Taken On", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sample Taken On", line)) != null)
                     report.SampleTime = Convert.ToDateTime(param);
 
-                else if ((param = ParseReport_ExtractParameter("Acquisition Started", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Acquisition Started", line)) != null)
                     report.AcquisitionTime = Convert.ToDateTime(param);
 
-                else if ((param = ParseReport_ExtractParameter("Live Time", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Live Time", line)) != null)
                     report.Livetime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
-                else if ((param = ParseReport_ExtractParameter("Real Time", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Real Time", line)) != null)
                     report.Realtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
-                else if ((param = ParseReport_ExtractParameter("Dead Time", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Dead Time", line)) != null)
                     report.Deadtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
-                else if ((param = ParseReport_ExtractParameter("Sigma", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Sigma", line)) != null)
                     report.Sigma = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
-                else if ((param = ParseReport_ExtractParameter("Filename", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Filename", line)) != null)
                     report.Filename = param;
 
-                else if ((param = ParseReport_ExtractParameter("Background File", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Background File", line)) != null)
                     report.BackgroundFile = param;
 
-                else if ((param = ParseReport_ExtractParameter("Nuclide Library Used", line)) != String.Empty)
+                else if ((param = ParseReport_ExtractParameter("Nuclide Library Used", line)) != null)
                     report.NuclideLibrary = param;
 
                 else if (line.StartsWith("+++BKG+++"))
                     ParseReport_BKG(reader, report);
 
                 else if (line.StartsWith("+++INTF+++"))
-                    ParseReport_INTF(reader, report);
+                    ParseReport_INTF(reader, report, nuclideList);
 
                 else if (line.StartsWith("+++MDA+++"))
-                    ParseReport_MDA(reader, report);                
+                    ParseReport_MDA(reader, report, nuclideList);
             }            
 
             return report;
@@ -585,7 +665,7 @@ namespace LorakonSniff
             }
         }
 
-        private void ParseReport_INTF(StringReader reader, SpectrumReport report)
+        private void ParseReport_INTF(StringReader reader, SpectrumReport report, string[] nuclideList)
         {
             report.Results.Clear();
             string line;
@@ -598,7 +678,13 @@ namespace LorakonSniff
                 
                 string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
                 if(items.Length == 4)
-                {
+                {                    
+                    if (!nuclideList.Contains(items[0].Trim().ToLower()))
+                    {
+                        report.AutoApproved = false;
+                        continue;
+                    }
+
                     SpectrumResult result = new SpectrumResult();
                     result.NuclideName = items[0].Trim();
                     result.Confidence = Convert.ToDouble(items[1], CultureInfo.InvariantCulture);
@@ -609,7 +695,7 @@ namespace LorakonSniff
             }
         }
 
-        private void ParseReport_MDA(StringReader reader, SpectrumReport report)
+        private void ParseReport_MDA(StringReader reader, SpectrumReport report, string[] nuclideList)
         {
             string line;
             char[] wspace = new char[] { ' ', '\t' };
@@ -622,10 +708,30 @@ namespace LorakonSniff
                 string[] items = line.Split(wspace, StringSplitOptions.RemoveEmptyEntries);
                 if (items.Length == 7)
                 {
-                    string nuclname = items[0].Trim();
+                    string nuclname = items[0].Trim();                    
+                    if (!nuclideList.Contains(nuclname.ToLower()))
+                    {
+                        report.AutoApproved = false;
+                        continue;
+                    }
+
                     SpectrumResult r = report.Results.Find(x => x.NuclideName == nuclname);
                     if (r != null)
+                    {
+                        // Resultat finnes, legg til MDA
                         r.MDA = Convert.ToDouble(items[4].Trim(), CultureInfo.InvariantCulture);
+                    }
+                    else
+                    {
+                        // Resultat finnes ikke, lag resultat med kun MDA
+                        SpectrumResult result = new SpectrumResult();
+                        result.NuclideName = nuclname;
+                        result.Confidence = 0.0;
+                        result.Activity = 0.0;
+                        result.ActivityUncertainty = 0.0;
+                        result.MDA = Convert.ToDouble(items[4].Trim(), CultureInfo.InvariantCulture);
+                        report.Results.Add(result);
+                    }
                 }
             }
         }        
@@ -642,12 +748,7 @@ namespace LorakonSniff
             return o;
         }
 
-        private Guid StoreReport(
-            SqlConnection connection, 
-            SpectrumReport report, 
-            string reportString, 
-            byte[] spectrum, 
-            string spectrumFileExtension)
+        private Guid StoreReport(SqlConnection connection, SpectrumReport report, string reportString, byte[] spectrum, string spectrumFileExtension)
         {
             SqlCommand command = null;
             Guid specId = Guid.Empty;
@@ -686,8 +787,10 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@SampleWeight", MakeQueryParam(report.SampleSize));
                 command.Parameters.AddWithValue("@SampleWeightUnit", MakeQueryParam(report.SampleUnit));
                 command.Parameters.AddWithValue("@SampleGeometry", MakeQueryParam(report.SampleGeometry));
-                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));                
+                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));
+                command.Parameters.AddWithValue("@AutoApproved", MakeQueryParam(report.AutoApproved));
                 command.Parameters.AddWithValue("@Approved", MakeQueryParam(report.Approved));
+                command.Parameters.AddWithValue("@Rejected", MakeQueryParam(report.Rejected));
                 command.Parameters.AddWithValue("@Comment", MakeQueryParam(report.Comment));
 
                 command.ExecuteNonQuery();
@@ -722,9 +825,10 @@ namespace LorakonSniff
                     command.Parameters.AddWithValue("@Activity", MakeQueryParam(result.Activity));
                     command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
                     command.Parameters.AddWithValue("@MDA", MakeQueryParam(result.MDA));
-                    command.Parameters.AddWithValue("@AutoApproved", result.AutoApproved);
-                    command.Parameters.AddWithValue("@Evaluated", 0);
-                    command.Parameters.AddWithValue("@Approved", 0);
+                    command.Parameters.AddWithValue("@Evaluated", MakeQueryParam(result.Evaluated));
+                    command.Parameters.AddWithValue("@AutoApproved", MakeQueryParam(result.AutoApproved));
+                    command.Parameters.AddWithValue("@Approved", MakeQueryParam(result.Approved));
+                    command.Parameters.AddWithValue("@Rejected", MakeQueryParam(result.Rejected));
                     command.Parameters.AddWithValue("@Comment", "");
 
                     command.ExecuteNonQuery();

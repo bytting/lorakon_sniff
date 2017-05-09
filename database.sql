@@ -19,6 +19,7 @@ IF OBJECT_ID('dbo.SpectrumChecksum', 'U') IS NOT NULL DROP TABLE dbo.SpectrumChe
 IF OBJECT_ID('dbo.SpectrumInfo', 'U') IS NOT NULL DROP TABLE dbo.SpectrumInfo;
 IF OBJECT_ID('dbo.SpectrumValidationRules', 'U') IS NOT NULL DROP TABLE dbo.SpectrumValidationRules;
 IF OBJECT_ID('dbo.SpectrumGeometryRules', 'U') IS NOT NULL DROP TABLE dbo.SpectrumGeometryRules;
+IF OBJECT_ID('dbo.SpectrumLog', 'U') IS NOT NULL DROP TABLE dbo.SpectrumLog;
 
 IF EXISTS(SELECT * FROM sys.views WHERE name = 'SpectrumInfoLatest' AND schema_id = SCHEMA_ID('dbo')) DROP VIEW dbo.SpectrumInfoLatest;
 
@@ -45,6 +46,9 @@ IF (OBJECT_ID('dbo.proc_spectrum_validation_rules_update') IS NOT NULL) DROP PRO
 IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_select;
 IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_insert;
 IF (OBJECT_ID('dbo.proc_spectrum_geometry_rules_update') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_geometry_rules_update;
+IF (OBJECT_ID('dbo.proc_spectrum_log_insert') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_log_insert;
+IF (OBJECT_ID('dbo.proc_spectrum_log_select') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_log_select;
+IF (OBJECT_ID('dbo.proc_spectrum_log_select_severity') IS NOT NULL) DROP PROCEDURE dbo.proc_spectrum_log_select_severity;
 go
 
 create table SpectrumInfo
@@ -61,7 +65,7 @@ create table SpectrumInfo
 	Sigma float default null,
 	SampleType nvarchar(256) not null,
 	Livetime int not null,	
-	Laberatory nvarchar(128) default null,
+	Laboratory nvarchar(128) default null,
 	Operator nvarchar(128) default null,
 	SampleComponent nvarchar(256) default null,
 	Latitude float default null,
@@ -73,9 +77,9 @@ create table SpectrumInfo
 	SampleWeight float default null,
 	SampleWeightUnit nvarchar(24) default null,
 	SampleGeometry nvarchar(128) default null,
-	ExternalID nvarchar(128) default null,
-	AutoApproved bit default 0,
-	Approved bit default 0,
+	ExternalID nvarchar(128) default null,		
+	Approved bit default 0,	
+	ApprovedStatus nvarchar(80) default null,
 	Rejected bit default 0,
 	Comment nvarchar(256) default null
 ) 
@@ -110,9 +114,10 @@ create table SpectrumResult
 	Activity float default null,
 	ActivityUncertainty float default null,
 	MDA float default null,	
-	Evaluated bit default 0,
-	AutoApproved bit default 0,
+	Evaluated bit default 0,	
 	Approved bit default 0,
+	ApprovedIsMDA bit default 0,
+	ApprovedStatus nvarchar(80) default null,
 	Rejected bit default 0,
 	Comment nvarchar(256) default null,
 	constraint FK_SpectrumResult_SpectrumInfo 
@@ -174,6 +179,14 @@ create table SpectrumGeometryRules
 )
 go
 
+create table SpectrumLog
+(
+	CreateDate datetime not null,	
+	Severity int default 0 not null,
+	Message nvarchar(2048) not null	
+)
+go
+
 /* VIEWS */
 
 create view SpectrumInfoLatest
@@ -216,7 +229,7 @@ create proc proc_spectrum_info_insert
 	@Sigma float,
 	@SampleType nvarchar(256),
 	@Livetime int,	
-	@Laberatory nvarchar(128),
+	@Laboratory nvarchar(128),
 	@Operator nvarchar(128),
 	@SampleComponent nvarchar(256),
 	@Latitude float,
@@ -228,23 +241,23 @@ create proc proc_spectrum_info_insert
 	@SampleWeight float,
 	@SampleWeightUnit nvarchar(24),
 	@SampleGeometry nvarchar(128),
-	@ExternalID nvarchar(128),	
-	@AutoApproved bit,
-	@Approved bit,
+	@ExternalID nvarchar(128),		
+	@Approved bit,	
+	@ApprovedStatus nvarchar(80),
 	@Rejected bit,
 	@Comment nvarchar(256)
 as	
 	insert into SpectrumInfo(ID, AccountID, CreateDate, UpdateDate, AcquisitionDate, 
-		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laberatory, Operator, 
+		ReferenceDate, Filename, BackgroundFile, LibraryFile, Sigma, SampleType, Livetime, Laboratory, Operator, 
 		SampleComponent, Latitude, Longitude, Altitude, LocationType, 
 		Location, Community, SampleWeight, SampleWeightUnit, 
-		SampleGeometry, ExternalID, AutoApproved, Approved, Rejected, Comment)
+		SampleGeometry, ExternalID, Approved, ApprovedStatus, Rejected, Comment)
 	values(@ID, @AccountID, @CreateDate, @UpdateDate, 
 		dbo.func_make_extended_acquisitiondate(@AcquisitionDate, @Livetime), 
-		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laberatory, @Operator, 
+		@ReferenceDate, @Filename, @BackgroundFile, @LibraryFile, @Sigma, @SampleType, @Livetime, @Laboratory, @Operator, 
 		@SampleComponent, @Latitude, @Longitude, @Altitude, @LocationType, 
 		@Location, @Community, @SampleWeight, @SampleWeightUnit, 
-		@SampleGeometry, @ExternalID, @AutoApproved, @Approved, @Rejected, @Comment)
+		@SampleGeometry, @ExternalID, @Approved, @ApprovedStatus, @Rejected, @Comment)
 go
 
 create proc proc_spectrum_info_select
@@ -353,16 +366,17 @@ create proc proc_spectrum_result_insert
 	@Activity float,
 	@ActivityUncertainty float,
 	@MDA float,
-	@Evaluated bit,
-	@AutoApproved bit,	
+	@Evaluated bit,	
 	@Approved bit,
+	@ApprovedIsMDA bit,
+	@ApprovedStatus nvarchar(80),
 	@Rejected bit,
 	@Comment nvarchar(256)
 as 	
 	insert into SpectrumResult (ID, SpectrumInfoID, CreateDate, UpdateDate, NuclideName, 
-		Confidence, Activity, ActivityUncertainty, MDA, Evaluated, AutoApproved, Approved, Rejected, Comment)
+		Confidence, Activity, ActivityUncertainty, MDA, Evaluated, Approved, ApprovedIsMDA, ApprovedStatus, Rejected, Comment)
 	values(@ID, @SpectrumInfoID, @CreateDate, @UpdateDate, @NuclideName, 
-		@Confidence, @Activity, @ActivityUncertainty, @MDA, @Evaluated, @AutoApproved, @Approved, @Rejected, @Comment)
+		@Confidence, @Activity, @ActivityUncertainty, @MDA, @Evaluated, @Approved, @ApprovedIsMDA, @ApprovedStatus, @Rejected, @Comment)
 go
 
 create proc proc_spectrum_file_insert
@@ -480,4 +494,38 @@ as
 		Minimum = @Minimum, 
 		Maximum = @Maximum		
 	where ID = @ID
+go
+
+create proc proc_spectrum_log_insert
+	@Severity int,
+	@Message nvarchar(2048)
+as 
+	insert into SpectrumLog (		
+		CreateDate, Severity, Message
+	) values (		
+		GETDATE(),
+		@Severity, 
+		@Message
+	)
+go
+
+create proc proc_spectrum_log_select
+	@FromDate datetime,
+	@ToDate datetime
+as 
+	select * 
+	from SpectrumLog
+	where CreateDate between @FromDate and @ToDate
+	order by CreateDate desc
+go
+
+create proc proc_spectrum_log_select_severity
+	@FromDate datetime,
+	@ToDate datetime,
+	@Severity int
+as 
+	select * 
+	from SpectrumLog
+	where CreateDate between @FromDate and @ToDate and Severity = @Severity
+	order by CreateDate desc
 go

@@ -32,6 +32,7 @@
             this.status = new System.Windows.Forms.StatusStrip();
             this.tabs = new System.Windows.Forms.TabControl();
             this.pageAbout = new System.Windows.Forms.TabPage();
+            this.tbAbout = new System.Windows.Forms.TextBox();
             this.pageSettings = new System.Windows.Forms.TabPage();
             this.tblSettings = new System.Windows.Forms.TableLayoutPanel();
             this.label1 = new System.Windows.Forms.Label();
@@ -55,17 +56,13 @@
             this.tbSettingsOldDirectory = new System.Windows.Forms.TextBox();
             this.btnSettingsBrowseOldDirectory = new System.Windows.Forms.Button();
             this.cbSettingsDeleteOldSpectrums = new System.Windows.Forms.CheckBox();
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.btnSettingsSave = new System.Windows.Forms.Button();
-            this.pageLog = new System.Windows.Forms.TabPage();
-            this.tbLog = new System.Windows.Forms.TextBox();
-            this.btnLogUpdate = new System.Windows.Forms.Button();
             this.label4 = new System.Windows.Forms.Label();
             this.panel6 = new System.Windows.Forms.Panel();
-            this.btnSettingsBrowseWatchDirectory2 = new System.Windows.Forms.Button();
             this.tbSettingsWatchDirectory2 = new System.Windows.Forms.TextBox();
+            this.btnSettingsBrowseWatchDirectory2 = new System.Windows.Forms.Button();
             this.cbSettingsDeleteImportedSpectrums = new System.Windows.Forms.CheckBox();
-            this.tbAbout = new System.Windows.Forms.TextBox();
+            this.panel2 = new System.Windows.Forms.Panel();
+            this.btnSettingsSave = new System.Windows.Forms.Button();
             this.tabs.SuspendLayout();
             this.pageAbout.SuspendLayout();
             this.pageSettings.SuspendLayout();
@@ -74,9 +71,8 @@
             this.panel3.SuspendLayout();
             this.panel4.SuspendLayout();
             this.panel5.SuspendLayout();
-            this.panel2.SuspendLayout();
-            this.pageLog.SuspendLayout();
             this.panel6.SuspendLayout();
+            this.panel2.SuspendLayout();
             this.SuspendLayout();
             // 
             // status
@@ -92,7 +88,6 @@
             // 
             this.tabs.Controls.Add(this.pageAbout);
             this.tabs.Controls.Add(this.pageSettings);
-            this.tabs.Controls.Add(this.pageLog);
             this.tabs.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabs.Location = new System.Drawing.Point(0, 0);
             this.tabs.Name = "tabs";
@@ -110,6 +105,18 @@
             this.pageAbout.Size = new System.Drawing.Size(929, 559);
             this.pageAbout.TabIndex = 0;
             this.pageAbout.Text = "Informasjon";
+            // 
+            // tbAbout
+            // 
+            this.tbAbout.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.tbAbout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbAbout.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tbAbout.Location = new System.Drawing.Point(14, 13);
+            this.tbAbout.Multiline = true;
+            this.tbAbout.Name = "tbAbout";
+            this.tbAbout.ReadOnly = true;
+            this.tbAbout.Size = new System.Drawing.Size(901, 533);
+            this.tbAbout.TabIndex = 0;
             // 
             // pageSettings
             // 
@@ -376,60 +383,6 @@
             this.cbSettingsDeleteOldSpectrums.Text = "Slett spekter som allerede er importert";
             this.cbSettingsDeleteOldSpectrums.UseVisualStyleBackColor = true;
             // 
-            // panel2
-            // 
-            this.panel2.Controls.Add(this.btnSettingsSave);
-            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(3, 523);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(923, 33);
-            this.panel2.TabIndex = 1;
-            // 
-            // btnSettingsSave
-            // 
-            this.btnSettingsSave.Dock = System.Windows.Forms.DockStyle.Right;
-            this.btnSettingsSave.Location = new System.Drawing.Point(763, 0);
-            this.btnSettingsSave.Name = "btnSettingsSave";
-            this.btnSettingsSave.Size = new System.Drawing.Size(160, 33);
-            this.btnSettingsSave.TabIndex = 0;
-            this.btnSettingsSave.Text = "Lagre";
-            this.btnSettingsSave.UseVisualStyleBackColor = true;
-            this.btnSettingsSave.Click += new System.EventHandler(this.btnSettingsSave_Click);
-            // 
-            // pageLog
-            // 
-            this.pageLog.BackColor = System.Drawing.SystemColors.ButtonFace;
-            this.pageLog.Controls.Add(this.tbLog);
-            this.pageLog.Controls.Add(this.btnLogUpdate);
-            this.pageLog.Location = new System.Drawing.Point(4, 25);
-            this.pageLog.Name = "pageLog";
-            this.pageLog.Padding = new System.Windows.Forms.Padding(3);
-            this.pageLog.Size = new System.Drawing.Size(929, 559);
-            this.pageLog.TabIndex = 2;
-            this.pageLog.Text = "Logg";
-            // 
-            // tbLog
-            // 
-            this.tbLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbLog.Location = new System.Drawing.Point(3, 41);
-            this.tbLog.Multiline = true;
-            this.tbLog.Name = "tbLog";
-            this.tbLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.tbLog.Size = new System.Drawing.Size(923, 515);
-            this.tbLog.TabIndex = 2;
-            this.tbLog.WordWrap = false;
-            // 
-            // btnLogUpdate
-            // 
-            this.btnLogUpdate.Dock = System.Windows.Forms.DockStyle.Top;
-            this.btnLogUpdate.Location = new System.Drawing.Point(3, 3);
-            this.btnLogUpdate.Name = "btnLogUpdate";
-            this.btnLogUpdate.Size = new System.Drawing.Size(923, 38);
-            this.btnLogUpdate.TabIndex = 4;
-            this.btnLogUpdate.Text = "Vis logg";
-            this.btnLogUpdate.UseVisualStyleBackColor = true;
-            this.btnLogUpdate.Click += new System.EventHandler(this.btnLogUpdate_Click);
-            // 
             // label4
             // 
             this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -451,6 +404,15 @@
             this.panel6.Size = new System.Drawing.Size(733, 26);
             this.panel6.TabIndex = 14;
             // 
+            // tbSettingsWatchDirectory2
+            // 
+            this.tbSettingsWatchDirectory2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tbSettingsWatchDirectory2.Location = new System.Drawing.Point(0, 0);
+            this.tbSettingsWatchDirectory2.Name = "tbSettingsWatchDirectory2";
+            this.tbSettingsWatchDirectory2.ReadOnly = true;
+            this.tbSettingsWatchDirectory2.Size = new System.Drawing.Size(647, 23);
+            this.tbSettingsWatchDirectory2.TabIndex = 1;
+            // 
             // btnSettingsBrowseWatchDirectory2
             // 
             this.btnSettingsBrowseWatchDirectory2.Dock = System.Windows.Forms.DockStyle.Right;
@@ -461,15 +423,6 @@
             this.btnSettingsBrowseWatchDirectory2.Text = "...";
             this.btnSettingsBrowseWatchDirectory2.UseVisualStyleBackColor = true;
             this.btnSettingsBrowseWatchDirectory2.Click += new System.EventHandler(this.btnSettingsBrowseWatchDirectory2_Click);
-            // 
-            // tbSettingsWatchDirectory2
-            // 
-            this.tbSettingsWatchDirectory2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbSettingsWatchDirectory2.Location = new System.Drawing.Point(0, 0);
-            this.tbSettingsWatchDirectory2.Name = "tbSettingsWatchDirectory2";
-            this.tbSettingsWatchDirectory2.ReadOnly = true;
-            this.tbSettingsWatchDirectory2.Size = new System.Drawing.Size(647, 23);
-            this.tbSettingsWatchDirectory2.TabIndex = 1;
             // 
             // cbSettingsDeleteImportedSpectrums
             // 
@@ -483,17 +436,25 @@
             this.cbSettingsDeleteImportedSpectrums.Text = "Slett spekter etter import";
             this.cbSettingsDeleteImportedSpectrums.UseVisualStyleBackColor = true;
             // 
-            // tbAbout
+            // panel2
             // 
-            this.tbAbout.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.tbAbout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbAbout.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tbAbout.Location = new System.Drawing.Point(14, 13);
-            this.tbAbout.Multiline = true;
-            this.tbAbout.Name = "tbAbout";
-            this.tbAbout.ReadOnly = true;
-            this.tbAbout.Size = new System.Drawing.Size(901, 533);
-            this.tbAbout.TabIndex = 0;
+            this.panel2.Controls.Add(this.btnSettingsSave);
+            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.panel2.Location = new System.Drawing.Point(3, 523);
+            this.panel2.Name = "panel2";
+            this.panel2.Size = new System.Drawing.Size(923, 33);
+            this.panel2.TabIndex = 1;
+            // 
+            // btnSettingsSave
+            // 
+            this.btnSettingsSave.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnSettingsSave.Location = new System.Drawing.Point(763, 0);
+            this.btnSettingsSave.Name = "btnSettingsSave";
+            this.btnSettingsSave.Size = new System.Drawing.Size(160, 33);
+            this.btnSettingsSave.TabIndex = 0;
+            this.btnSettingsSave.Text = "Lagre";
+            this.btnSettingsSave.UseVisualStyleBackColor = true;
+            this.btnSettingsSave.Click += new System.EventHandler(this.btnSettingsSave_Click);
             // 
             // FormLorakonSniff
             // 
@@ -524,11 +485,9 @@
             this.panel4.PerformLayout();
             this.panel5.ResumeLayout(false);
             this.panel5.PerformLayout();
-            this.panel2.ResumeLayout(false);
-            this.pageLog.ResumeLayout(false);
-            this.pageLog.PerformLayout();
             this.panel6.ResumeLayout(false);
             this.panel6.PerformLayout();
+            this.panel2.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -540,7 +499,6 @@
         private System.Windows.Forms.TabControl tabs;
         private System.Windows.Forms.TabPage pageAbout;
         private System.Windows.Forms.TabPage pageSettings;
-        private System.Windows.Forms.TabPage pageLog;
         private System.Windows.Forms.TableLayoutPanel tblSettings;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Panel panel1;
@@ -552,7 +510,6 @@
         private System.Windows.Forms.TextBox tbSettingsConnectionString;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox tbSettingsSpectrumFilter;
-        private System.Windows.Forms.Button btnLogUpdate;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Panel panel3;
@@ -566,7 +523,6 @@
         private System.Windows.Forms.TextBox tbSettingsOldDirectory;
         private System.Windows.Forms.Button btnSettingsBrowseOldDirectory;
         private System.Windows.Forms.CheckBox cbSettingsDeleteOldSpectrums;
-        private System.Windows.Forms.TextBox tbLog;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Panel panel6;
         private System.Windows.Forms.TextBox tbSettingsWatchDirectory2;

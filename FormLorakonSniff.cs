@@ -35,9 +35,9 @@ using CTimer = System.Windows.Forms.Timer;
 namespace LorakonSniff
 {
     public partial class FormLorakonSniff : Form
-    {        
-        private ContextMenu trayMenu = null;
-        private Log log = null;
+    {
+        private SqlConnection connection = null;
+        private ContextMenu trayMenu = null;        
         private Settings settings = null;                
         private CTimer timer = new CTimer();
         private Hashes hashes = null;
@@ -53,8 +53,7 @@ namespace LorakonSniff
 
             trayMenu = new ContextMenu();
             trayMenu.MenuItems.Add("Avslutt", OnExit);
-            trayMenu.MenuItems.Add("-");
-            trayMenu.MenuItems.Add("Logg", OnLog);
+            trayMenu.MenuItems.Add("-");            
             trayMenu.MenuItems.Add("Innstillinger", OnSettings);
             trayMenu.MenuItems.Add("-");
             trayMenu.MenuItems.Add("Informasjon", OnAbout);
@@ -70,35 +69,27 @@ namespace LorakonSniff
         {
             try
             {
-                log = new Log();
-                log.AddMessage("STARTER SPEKTRUM IMPORT");
-            }
-            catch(Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                Application.Exit();
-            }
+                // Create environment and load settings
+                if (!Directory.Exists(LorakonEnvironment.SettingsPath))
+                    Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
+                settings = new Settings();
+                LoadSettings();
 
-            try
-            {
+                connection = new SqlConnection(settings.ConnectionString);
+                connection.Open();
+
                 hashes = new Hashes();
 
                 string InstallationDirectory = 
                     Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) + 
                     Path.DirectorySeparatorChar;
                 ReportExecutable = InstallationDirectory + "report.exe";
-                if (!File.Exists(ReportExecutable))
-                {
-                    log.AddMessage("Finner ikke filen: " + ReportExecutable);
-                    Application.Exit();
-                }
+                if (!File.Exists(ReportExecutable))                
+                    throw new Exception("Finner ikke filen: " + ReportExecutable);
 
                 ReportTemplate = InstallationDirectory + "report_template.tpl";
-                if (!File.Exists(ReportTemplate))
-                {
-                    log.AddMessage("Finner ikke filen: " + ReportTemplate);
-                    Application.Exit();
-                }
+                if (!File.Exists(ReportTemplate))                
+                    throw new Exception("Finner ikke filen: " + ReportTemplate);
 
                 Visible = false;
                 ShowInTaskbar = false;
@@ -108,13 +99,7 @@ namespace LorakonSniff
                 Width = (rect.Right - rect.Left) / 2;
                 Height = (rect.Bottom - rect.Top) / 2;
                 Left = rect.Left + Width / 2;
-                Top = rect.Top + Height / 2;
-
-                // Create environment and load settings
-                if (!Directory.Exists(LorakonEnvironment.SettingsPath))
-                    Directory.CreateDirectory(LorakonEnvironment.SettingsPath);
-                settings = new Settings();
-                LoadSettings();                
+                Top = rect.Top + Height / 2;                
 
                 if (!Directory.Exists(settings.RootDirectory))
                     Directory.CreateDirectory(settings.RootDirectory);
@@ -152,9 +137,18 @@ namespace LorakonSniff
                 timer.Start();
             }
             catch(Exception ex)
-            {
-                MessageBox.Show(ex.Message);
+            {                
+                if (connection != null && connection.State == ConnectionState.Open)
+                {
+                    Log.Add(connection, Log.Severity.Critical, ex.Message);
+                    connection.Close();
+                }                    
                 Application.Exit();
+            }
+            finally
+            {
+                if (connection != null && connection.State == ConnectionState.Open)
+                    connection.Close();
             }
         }
 
@@ -162,8 +156,7 @@ namespace LorakonSniff
         {
             try
             {
-                using (FileStream fstream = File.Open(
-                    filename, FileMode.Open, FileAccess.Read, FileShare.None))
+                using (FileStream fstream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
                     return fstream.Length > 0 ? true : false;
                 }
@@ -189,7 +182,7 @@ namespace LorakonSniff
             return true;            
         }
 
-        private bool TryDeleteFile(string filename)
+        private bool TryDeleteFile(SqlConnection connection, string filename)
         {
             try
             {
@@ -198,14 +191,14 @@ namespace LorakonSniff
             }
             catch (Exception ex)
             {
-                log.AddMessage("FEIL: " + ex.Message);
+                Log.Add(connection, Log.Severity.Warning, "FEIL: " + ex.Message);
                 return false;
             }
 
             return true;
         }
 
-        private bool TryMoveFile(string source, string destination)
+        private bool TryMoveFile(SqlConnection connection, string source, string destination)
         {
             try
             {
@@ -218,7 +211,7 @@ namespace LorakonSniff
             }
             catch (Exception ex)
             {
-                log.AddMessage("FEIL: " + ex.Message);
+                Log.Add(connection , Log.Severity.Warning, "FEIL: " + ex.Message);
                 return false;
             }
 
@@ -229,8 +222,7 @@ namespace LorakonSniff
         {
             if (newFiles.Count > 0)
                 return;
-
-            SqlConnection connection = null;
+                        
             string failedFilename = "";
 
             try
@@ -250,8 +242,7 @@ namespace LorakonSniff
 
                 if (newFiles.Count <= 0)
                     return;
-                
-                connection = new SqlConnection(settings.ConnectionString);
+                                
                 connection.Open();
 
                 NuclideRules = SpectrumValidationRules.LoadValidationRules(connection);
@@ -264,7 +255,7 @@ namespace LorakonSniff
 
                     if (!WaitForReadAccess(fname, 10000))
                     {
-                        log.AddMessage("FEIL: Får ikke tilgang til filen: " + fname);
+                        Log.Add(connection, Log.Severity.Warning, "FEIL: Får ikke tilgang til filen: " + fname);
                         continue;
                     }
 
@@ -274,13 +265,13 @@ namespace LorakonSniff
 
                     if (!hashes.LookupChecksum(connection, checksum))
                     {
-                        log.AddMessage("Genererer rapport: " + fname + " [" + checksum + "]");
+                        Log.Add(connection, Log.Severity.Normal, "Genererer rapport: " + fname + " [" + checksum + "]");
 
                         string reportString = GenerateReport(fname);
                         if(reportString == null)
                         {
-                            log.AddMessage("FEIL: report.exe feilet");
-                            TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                            Log.Add(connection, Log.Severity.Warning, "FEIL: report.exe feilet");
+                            TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
                                     timestampString + Path.GetFileName(fname));                            
                             continue;
                         }
@@ -290,7 +281,7 @@ namespace LorakonSniff
                         string errorString;
                         if (ValidateReport(connection, report, out errorString))
                         {
-                            log.AddMessage("Importerer: " + fname + " [" + checksum + "]");
+                            Log.Add(connection, Log.Severity.Normal, "Importerer: " + fname + " [" + checksum + "]");
 
                             ApproveReportParams(report);
                             ApproveReportNuclides(report, NuclideRules);
@@ -301,22 +292,22 @@ namespace LorakonSniff
                             {
                                 hashes.StoreChecksum(connection, checksum, specId);
                                 if (cbSettingsDeleteImportedSpectrums.Checked)
-                                    TryDeleteFile(fname);
+                                    TryDeleteFile(connection, fname);
                                 else
-                                    TryMoveFile(fname, settings.ImportedDirectory +
+                                    TryMoveFile(connection, fname, settings.ImportedDirectory +
                                         Path.DirectorySeparatorChar + timestampString +
                                         Path.GetFileName(fname));
                             }
                             else
                             {
-                                TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
                                     timestampString + Path.GetFileName(fname));                                
                             }
                         }
                         else
                         {
-                            log.AddMessage("Ugyldig rapport: " + errorString + ": " + fname + " [" + checksum + "]");
-                            TryMoveFile(fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                            Log.Add(connection, Log.Severity.Warning, "Ugyldig rapport: " + errorString + ": " + fname + " [" + checksum + "]");
+                            TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
                                 timestampString + Path.GetFileName(fname));                            
                         }                                                
                     }
@@ -324,25 +315,26 @@ namespace LorakonSniff
                     {
                         if (settings.DeleteOldFiles)
                         {
-                            log.AddMessage("Sletter allerede importert: " + fname + " [" + checksum + "]");
-                            TryDeleteFile(fname);
+                            Log.Add(connection, Log.Severity.Normal, "Sletter allerede importert: " + fname + " [" + checksum + "]");
+                            TryDeleteFile(connection, fname);
                         }
                         else
                         {
-                            log.AddMessage("Flytter allerede importert: " + fname + " [" + checksum + "]");
-                            TryMoveFile(fname, settings.OldDirectory + Path.DirectorySeparatorChar +
+                            Log.Add(connection, Log.Severity.Normal, "Flytter allerede importert: " + fname + " [" + checksum + "]");
+                            TryMoveFile(connection, fname, settings.OldDirectory + Path.DirectorySeparatorChar +
                                 timestampString + Path.GetFileName(fname));                            
                         }
                     }
-                }
 
-                Application.DoEvents();                
+                    Thread.Sleep(200);
+                    Application.DoEvents();
+                }                
             }
             catch (Exception ex)
             {
-                log.AddMessage("FEIL: " + ex.Message);
+                Log.Add(connection, Log.Severity.Critical, "FEIL: " + ex.Message);
                 string timestampString = DateTime.Now.Ticks.ToString() + "-";
-                TryMoveFile(failedFilename, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                TryMoveFile(connection, failedFilename, settings.FailedDirectory + Path.DirectorySeparatorChar +
                                 timestampString + Path.GetFileName(failedFilename));                
             }
             finally
@@ -414,28 +406,35 @@ namespace LorakonSniff
         private void ApproveReportParams(SpectrumReport report)
         {
             if (String.IsNullOrEmpty(report.SampleGeometry))
-                report.AutoApproved = false;
+            {
+                report.Approved = false;
+                report.ApprovedStatus = "Geometri mangler";
+            }
 
             if (String.IsNullOrEmpty(report.SampleUnit))
-                report.AutoApproved = false;
+            {
+                report.Approved = false;
+                report.ApprovedStatus = "Prøve enhet mangler";
+            }
 
-            if(report.SampleSize <= 0.0)
-                report.AutoApproved = false;
+            if (report.SampleSize <= 0.0)
+            {
+                report.Approved = false;
+                report.ApprovedStatus = "Prøve volum er mindre eller lik 0";
+            }
 
             if (report.Sigma <= 0.0)
-                report.AutoApproved = false;
+            {
+                report.Approved = false;
+                report.ApprovedStatus = "Sigma er mindre eller lik 0";
+            }
         }
 
         private void ApproveReportNuclides(SpectrumReport report, List<ValidationRule> rules)
         {
             foreach (SpectrumResult result in report.Results)
             {                
-                result.AutoApproved = false;
-
-                if (result.Activity == 0.0 && result.ActivityUncertainty == 0.0)
-                {                
-                    continue;
-                }
+                result.Approved = false;                
 
                 ValidationRule rule = rules.Find(r => r.NuclideName.Trim().ToLower() == result.NuclideName.Trim().ToLower());
 
@@ -443,19 +442,33 @@ namespace LorakonSniff
                 {
                     if (rule.CanBeAutoApproved)
                     {
-                        if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
-                        {
-                            result.AutoApproved = true;
+                        double percent = (result.ActivityUncertainty / result.Activity) * 100.0;
+
+                        if ((result.Activity == 0.0 && result.ActivityUncertainty == 0.0) || percent > 30.0)
+                        {                            
+                            result.ApprovedIsMDA = true;
+                            result.Approved = true;
                         }
                         else
-                        {
-                            report.AutoApproved = false;
-                        }
+                        {                            
+                            result.ApprovedIsMDA = false;
+
+                            if (result.Activity >= rule.ActivityMin && result.Activity <= rule.ActivityMax && result.Confidence >= rule.ConfidenceMin)
+                            {
+                                result.Approved = true;
+                            }
+                            else
+                            {
+                                report.Approved = false;
+                                report.ApprovedStatus = "Ett eller flere resultater er utenfor kriterier";
+                            }
+                        }                        
                     }
                 }
                 else
                 {
-                    report.AutoApproved = false;
+                    report.Approved = false;
+                    report.ApprovedStatus = "En eller flere nuklider mangler i bibliotek";
                 }                
             }            
         }
@@ -469,7 +482,8 @@ namespace LorakonSniff
             {
                 if (report.SampleSize > rule.Maximum || report.SampleSize < rule.Minimum)
                 {
-                    report.AutoApproved = false;
+                    report.Approved = false;
+                    report.ApprovedStatus = "Prøve volum er utenfor geometri volum";
                 }
             }
         }
@@ -532,7 +546,7 @@ namespace LorakonSniff
         private SpectrumReport ParseReport(string rep, string[] nuclideList)
         {
             SpectrumReport report = new SpectrumReport();
-            report.AutoApproved = true;
+            report.Approved = true;
             
             StringReader reader = new StringReader(rep);
             string line, param;
@@ -615,8 +629,11 @@ namespace LorakonSniff
                 else if ((param = ParseReport_ExtractParameter("Dead Time", line)) != null)
                     report.Deadtime = Convert.ToDouble(param, CultureInfo.InvariantCulture);
 
-                else if ((param = ParseReport_ExtractParameter("Sigma", line)) != null)
+                else if ((param = ParseReport_ExtractParameter("Errors quoted at", line)) != null)
                     report.Sigma = Convert.ToDouble(param, CultureInfo.InvariantCulture);
+
+                else if ((param = ParseReport_ExtractParameter("Sigma", line)) != null)
+                    report.Sigma = Convert.ToDouble(param, CultureInfo.InvariantCulture);                
 
                 else if ((param = ParseReport_ExtractParameter("Filename", line)) != null)
                     report.Filename = param;
@@ -681,7 +698,8 @@ namespace LorakonSniff
                 {                    
                     if (!nuclideList.Contains(items[0].Trim().ToLower()))
                     {
-                        report.AutoApproved = false;
+                        report.Approved = false;
+                        report.ApprovedStatus = "INTF linje ikke funnet i bibliotek";
                         continue;
                     }
 
@@ -711,7 +729,8 @@ namespace LorakonSniff
                     string nuclname = items[0].Trim();                    
                     if (!nuclideList.Contains(nuclname.ToLower()))
                     {
-                        report.AutoApproved = false;
+                        report.Approved = false;
+                        report.ApprovedStatus = "MDA linje ikke funnet i bibliotek";
                         continue;
                     }
 
@@ -775,7 +794,7 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@Sigma", MakeQueryParam(report.Sigma));
                 command.Parameters.AddWithValue("@SampleType", MakeQueryParam(report.SampleType));
                 command.Parameters.AddWithValue("@Livetime", MakeQueryParam(report.Livetime));
-                command.Parameters.AddWithValue("@Laberatory", MakeQueryParam(report.Laboratory));
+                command.Parameters.AddWithValue("@Laboratory", MakeQueryParam(report.Laboratory));
                 command.Parameters.AddWithValue("@Operator", MakeQueryParam(report.Operator));
                 command.Parameters.AddWithValue("@SampleComponent", MakeQueryParam(report.SampleComponent));
                 command.Parameters.AddWithValue("@Latitude", MakeQueryParam(report.SampleLatitude));
@@ -787,13 +806,13 @@ namespace LorakonSniff
                 command.Parameters.AddWithValue("@SampleWeight", MakeQueryParam(report.SampleSize));
                 command.Parameters.AddWithValue("@SampleWeightUnit", MakeQueryParam(report.SampleUnit));
                 command.Parameters.AddWithValue("@SampleGeometry", MakeQueryParam(report.SampleGeometry));
-                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));
-                command.Parameters.AddWithValue("@AutoApproved", MakeQueryParam(report.AutoApproved));
+                command.Parameters.AddWithValue("@ExternalID", MakeQueryParam(report.SampleIdentification));                
                 command.Parameters.AddWithValue("@Approved", MakeQueryParam(report.Approved));
+                command.Parameters.AddWithValue("@ApprovedStatus", MakeQueryParam(report.ApprovedStatus));
                 command.Parameters.AddWithValue("@Rejected", MakeQueryParam(report.Rejected));
                 command.Parameters.AddWithValue("@Comment", MakeQueryParam(report.Comment));
 
-                command.ExecuteNonQuery();
+                command.ExecuteNonQuery();                
 
                 command.CommandText = "proc_spectrum_background_insert";
                 foreach (SpectrumBackground background in report.Backgrounds)
@@ -811,7 +830,7 @@ namespace LorakonSniff
 
                     command.ExecuteNonQuery();
                 }
-
+                
                 command.CommandText = "proc_spectrum_result_insert";
                 foreach (SpectrumResult result in report.Results)
                 {
@@ -826,8 +845,9 @@ namespace LorakonSniff
                     command.Parameters.AddWithValue("@ActivityUncertainty", MakeQueryParam(result.ActivityUncertainty));
                     command.Parameters.AddWithValue("@MDA", MakeQueryParam(result.MDA));
                     command.Parameters.AddWithValue("@Evaluated", MakeQueryParam(result.Evaluated));
-                    command.Parameters.AddWithValue("@AutoApproved", MakeQueryParam(result.AutoApproved));
                     command.Parameters.AddWithValue("@Approved", MakeQueryParam(result.Approved));
+                    command.Parameters.AddWithValue("@ApprovedIsMDA", MakeQueryParam(result.ApprovedIsMDA));
+                    command.Parameters.AddWithValue("@ApprovedStatus", MakeQueryParam(result.ApprovedStatus));
                     command.Parameters.AddWithValue("@Rejected", MakeQueryParam(result.Rejected));
                     command.Parameters.AddWithValue("@Comment", "");
 
@@ -852,7 +872,7 @@ namespace LorakonSniff
                 if(command != null && command.Transaction != null)
                     command.Transaction.Rollback();
 
-                log.AddMessage("FEIL: " + ex.Message);
+                Log.Add(connection, Log.Severity.Critical, "FEIL: " + ex.Message);
                 return Guid.Empty;
             }            
 
@@ -908,14 +928,6 @@ namespace LorakonSniff
                 WindowState = FormWindowState.Normal;
             Visible = true;
             tabs.SelectedTab = pageSettings;
-        }
-
-        private void OnLog(object sender, EventArgs e)
-        {
-            if (WindowState == FormWindowState.Minimized)
-                WindowState = FormWindowState.Normal;
-            Visible = true;
-            tabs.SelectedTab = pageLog;
         }
 
         private void FormLorakonSniff_FormClosing(object sender, FormClosingEventArgs e)
@@ -1000,8 +1012,7 @@ namespace LorakonSniff
         }
 
         private void btnLogUpdate_Click(object sender, EventArgs e)
-        {            
-            tbLog.Text = File.ReadAllText(LorakonEnvironment.LogFile);
+        {                        
         }
 
         private void btnSettingsBrowseWatchDirectory_Click(object sender, EventArgs e)

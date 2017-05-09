@@ -81,6 +81,7 @@ $ELSE
 "No peak analysis results available to perform background subtract on."
 " OR"
 "No peaks remain after background subtracted."
+"Background File:::|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" EXPBACK
 $ENDIF
 $ELSE
 "No background subtract performed on this spectrum."

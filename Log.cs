@@ -17,39 +17,56 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Data.SqlClient;
 
 namespace LorakonSniff
 {
-    public class Log
+    public static class Log
     {
-        public Log()
+        public enum Severity { Normal=0, Warning=1, Critical=2 };
+
+        public static void Add(SqlConnection connection, Severity severity, string msg)
         {
+            SqlCommand command = new SqlCommand("proc_spectrum_log_insert", connection);
+            command.CommandType = System.Data.CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@Severity", severity);
+            command.Parameters.AddWithValue("@Message", msg);
+            command.ExecuteNonQuery();
         }
 
-        public void AddMessage(string message)
+        public static List<string> Get(SqlConnection connection, DateTime fromDate, DateTime toDate)
         {
-            try
+            List<string> logMessages = new List<string>();
+
+            SqlCommand command = new SqlCommand("proc_spectrum_log_select", connection);
+            command.CommandType = System.Data.CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@FromDate", fromDate);
+            command.Parameters.AddWithValue("@ToDate", toDate);
+            using (SqlDataReader reader = command.ExecuteReader())
             {
-                using (StreamWriter writer = File.AppendText(LorakonEnvironment.LogFile))
-                {
-                    LogMessage(writer, message);
-                }
-            }
-            catch
-            {
-            }
+                while (reader.Read())
+                    logMessages.Add(Convert.ToString(reader["Message"]));
+            }   
+                 
+            return logMessages;
         }
 
-        public void LogMessage(TextWriter writer, string message)
+        public static List<string> Get(SqlConnection connection, DateTime fromDate, DateTime toDate, Severity severity)
         {
-            try
+            List<string> logMessages = new List<string>();
+
+            SqlCommand command = new SqlCommand("proc_spectrum_log_select_severity", connection);
+            command.CommandType = System.Data.CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@FromDate", fromDate);
+            command.Parameters.AddWithValue("@ToDate", toDate);
+            command.Parameters.AddWithValue("@Severity", severity);
+            using (SqlDataReader reader = command.ExecuteReader())
             {
-                writer.WriteLine("{0} {1} === {2}", DateTime.Now.ToShortTimeString(), DateTime.Now.ToShortDateString(), message);                
+                while (reader.Read())
+                    logMessages.Add(Convert.ToString(reader["Message"]));
             }
-            catch
-            {
-            }
+
+            return logMessages;
         }
     }
 }

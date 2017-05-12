@@ -227,32 +227,48 @@ namespace LorakonSniff
 
             try
             {
-                if(Directory.Exists(settings.WatchDirectory))
+                if (Directory.Exists(settings.WatchDirectory))
                     newFiles.AddRange(Directory.GetFiles(
-                        settings.WatchDirectory, 
-                        settings.FileFilter, 
+                        settings.WatchDirectory,
+                        settings.FileFilter,
                         SearchOption.AllDirectories));
 
-                if (Directory.Exists(settings.WatchDirectory2) && 
+                if (Directory.Exists(settings.WatchDirectory2) &&
                     settings.WatchDirectory != settings.WatchDirectory2)
                     newFiles.AddRange(Directory.GetFiles(
-                        settings.WatchDirectory2, 
-                        settings.FileFilter, 
+                        settings.WatchDirectory2,
+                        settings.FileFilter,
                         SearchOption.AllDirectories));
 
                 if (newFiles.Count <= 0)
                     return;
-                                
+
                 connection.Open();
+            }
+            catch(Exception ex)
+            {
+                // Add to application log
+                return;
+            }
 
+            try
+            {
                 NuclideRules = SpectrumValidationRules.LoadValidationRules(connection);
-                GeometryRules = SpectrumGeometryRules.LoadGeometryRules(connection);
-                string[] NuclideList = NuclideRules.Select(x => x.NuclideName.ToLower()).ToArray();
+                GeometryRules = SpectrumGeometryRules.LoadGeometryRules(connection);                
+            }
+            catch(Exception ex)
+            {
+                Log.Add(connection, Log.Severity.Critical, "Timer_Tick1: " + ex.Message);
+                connection.Close();
+                return;
+            }
 
-                foreach (string fname in newFiles)
+            string[] NuclideList = NuclideRules.Select(x => x.NuclideName.ToLower()).ToArray();
+
+            foreach (string fname in newFiles)
+            {
+                try
                 {
-                    failedFilename = fname;
-
                     if (!WaitForReadAccess(fname, 10000))
                     {
                         Log.Add(connection, Log.Severity.Warning, "FEIL: Får ikke tilgang til filen: " + fname);
@@ -268,11 +284,11 @@ namespace LorakonSniff
                         Log.Add(connection, Log.Severity.Normal, "Genererer rapport: " + fname + " [" + checksum + "]");
 
                         string reportString = GenerateReport(fname);
-                        if(reportString == null)
+                        if (reportString == null)
                         {
                             Log.Add(connection, Log.Severity.Warning, "FEIL: report.exe feilet");
                             TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                    timestampString + Path.GetFileName(fname));                            
+                                    timestampString + Path.GetFileName(fname));
                             continue;
                         }
 
@@ -301,15 +317,15 @@ namespace LorakonSniff
                             else
                             {
                                 TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                    timestampString + Path.GetFileName(fname));                                
+                                    timestampString + Path.GetFileName(fname));
                             }
                         }
                         else
                         {
                             Log.Add(connection, Log.Severity.Warning, "Ugyldig rapport: " + errorString + ": " + fname + " [" + checksum + "]");
                             TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(fname));                            
-                        }                                                
+                                timestampString + Path.GetFileName(fname));
+                        }
                     }
                     else
                     {
@@ -322,28 +338,26 @@ namespace LorakonSniff
                         {
                             Log.Add(connection, Log.Severity.Normal, "Flytter allerede importert: " + fname + " [" + checksum + "]");
                             TryMoveFile(connection, fname, settings.OldDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(fname));                            
+                                timestampString + Path.GetFileName(fname));
                         }
                     }
 
                     Thread.Sleep(200);
                     Application.DoEvents();
-                }                
+                }
+                catch (Exception ex)
+                {
+                    Log.Add(connection, Log.Severity.Critical, "FEIL: " + ex.Message);
+                    string timestampString = DateTime.Now.Ticks.ToString() + "-";
+                    TryMoveFile(connection, fname, settings.FailedDirectory + Path.DirectorySeparatorChar +
+                                    timestampString + Path.GetFileName(fname));
+                }
             }
-            catch (Exception ex)
-            {
-                Log.Add(connection, Log.Severity.Critical, "FEIL: " + ex.Message);
-                string timestampString = DateTime.Now.Ticks.ToString() + "-";
-                TryMoveFile(connection, failedFilename, settings.FailedDirectory + Path.DirectorySeparatorChar +
-                                timestampString + Path.GetFileName(failedFilename));                
-            }
-            finally
-            {
-                if (connection != null && connection.State == ConnectionState.Open)
-                    connection.Close();
+                        
+            if (connection != null && connection.State == ConnectionState.Open)
+                connection.Close();
 
-                newFiles.Clear();
-            }
+            newFiles.Clear();
         }                
        
         private bool ValidateReport(SqlConnection connection, SpectrumReport report, out string errorString)
